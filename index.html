@@ -1,0 +1,806 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#11553F">
+<meta name="description" content="Daily prayer start times from London Prayer Times with jamā‘ah times from local mosques.">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Salah Times">
+<title>Salah Times</title>
+<style>
+/* Layout: one phone-width column — date, next-prayer strip, the day's board — with an app-style tab bar pinned to the bottom. */
+:root {
+  --bg: #F2F5F1; --surface: #FFFFFF; --ink: #14261F; --muted: #5B6A63; --line: #D8E0DA;
+  --green: #11553F; --green-soft: #E2EEE7; --brass: #9C6B1F; --brass-soft: #F5EAD3;
+  --warn: #B0441C; --warn-soft: #FBE4D8;
+  --font-display: "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --r: 12px;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0C1613; --surface: #13201B; --ink: #E5EEE9; --muted: #93A59C; --line: #24362F;
+    --green: #63C49C; --green-soft: #17342A; --brass: #DDAA55; --brass-soft: #362B16;
+    --warn: #F08C64; --warn-soft: #3B2016; color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.45; -webkit-tap-highlight-color: transparent; }
+.wrap { max-width: 640px; margin: 0 auto; padding-inline: 16px; padding-top: calc(10px + env(safe-area-inset-top)); padding-bottom: calc(88px + env(safe-area-inset-bottom)); display: grid; gap: 14px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--brass); outline-offset: 2px; }
+.tn { font-variant-numeric: tabular-nums; }
+.ap { font-size: .6em; font-weight: 600; margin-left: 1px; letter-spacing: .02em; opacity: .75; }
+h1, h2 { font-family: var(--font-display); font-weight: 400; margin: 0; text-wrap: balance; }
+h2 { font-size: 1.2rem; }
+
+/* Bottom tab bar */
+.nav { position: fixed; left: 0; right: 0; bottom: 0; z-index: 10; display: flex; justify-content: center; gap: 6px; padding: 8px 12px calc(8px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line); }
+.nav button { flex: 1; max-width: 170px; border: 0; background: none; border-radius: 10px; padding: 9px 6px; font-weight: 600; font-size: .9rem; color: var(--muted); }
+.nav button[aria-selected="true"] { background: var(--green); color: var(--bg); }
+
+/* Day bar */
+.daybar { display: flex; align-items: center; gap: 8px; }
+.daybar .when { flex: 1; min-width: 0; text-align: center; }
+.gdate { font-family: var(--font-display); font-size: 1.3rem; }
+.iconbtn { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); font-size: 1.15rem; display: grid; place-items: center; flex: none; }
+.todaybtn { border: 0; background: none; color: var(--green); font-weight: 600; font-size: .85rem; text-decoration: underline; text-underline-offset: 3px; padding: 2px; }
+
+/* Next prayer strip */
+.next { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; background: var(--green); color: var(--bg); border-radius: var(--r); padding: 14px 16px; }
+.next .lbl { font-size: .7rem; text-transform: uppercase; letter-spacing: .12em; opacity: .8; }
+.next .nm { font-family: var(--font-display); font-size: 1.5rem; line-height: 1.15; }
+.next .sub { font-size: .85rem; opacity: .92; }
+.next .cd { font-size: 1.55rem; font-weight: 700; text-align: right; white-space: nowrap; }
+.next .jams { grid-column: 1 / -1; display: grid; gap: 6px; border-top: 1px solid color-mix(in srgb, var(--bg) 25%, transparent); padding-top: 10px; }
+.next .jl { display: grid; grid-template-columns: auto 1fr auto; gap: 10px; align-items: baseline; font-size: .9rem; }
+.next .jl b { font-weight: 700; min-width: 2.8em; }
+.next .jl span:last-child { font-weight: 700; font-size: 1.05rem; white-space: nowrap; }
+.next .cd small { display: block; font-size: .68rem; font-weight: 500; opacity: .8; letter-spacing: .06em; text-transform: uppercase; }
+
+/* The board */
+.board { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); overflow-x: auto; }
+.brow { display: grid; align-items: center; border-top: 1px solid var(--line); min-width: min-content; }
+.brow > * { padding: 12px 8px; }
+.brow.head { border-top: 0; background: var(--bg); font-size: .68rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+.brow.head > * { padding-block: 6px 8px; text-align: center; }
+.brow.head > :first-child { text-align: left; }
+.brow.groups { border-top: 0; background: var(--bg); font-size: .8rem; font-weight: 700; }
+.brow.groups > * { padding-bottom: 2px; }
+.col { border-bottom: 2px solid var(--brass); margin-inline: 4px; padding-inline: 2px !important; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.col.elm { border-bottom-color: var(--green); }
+.pname { font-weight: 600; font-size: 1rem; }
+.t { font-size: 1.25rem; font-weight: 500; text-align: center; white-space: nowrap; }
+.t.j { font-weight: 700; color: var(--brass); }
+.t.none { color: var(--muted); font-weight: 400; }
+.brow.sun .pname, .brow.sun .t { color: var(--muted); font-weight: 400; font-size: .95rem; }
+.brow.past { opacity: .5; }
+.brow.is-next { background: var(--green-soft); box-shadow: inset 4px 0 0 var(--green); }
+.notes { display: grid; gap: 6px; font-size: .85rem; color: var(--muted); margin: 0; padding: 0; list-style: none; }
+.notes .missing { color: var(--warn); }
+.linkbtn { border: 0; background: none; padding: 0; color: var(--green); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.pick { border: 0; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: .86rem; }
+.pick legend { float: left; margin-right: 2px; padding: 0; color: var(--muted); font-size: .7rem; font-weight: 600; text-transform: uppercase; letter-spacing: .08em; }
+.pick label { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 6px 12px 6px 9px; cursor: pointer; font-weight: 600; }
+.pick label.on { border-color: var(--brass); color: var(--brass); background: var(--brass-soft); }
+.pick input { accent-color: var(--brass); margin: 0; }
+.fresh { font-size: .78rem; color: var(--muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+/* Month */
+.mbar { display: flex; align-items: center; justify-content: center; gap: 10px; }
+.mlabel { font-family: var(--font-display); font-size: 1.2rem; min-width: 9em; text-align: center; }
+.scroll { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); }
+table.sheet { border-collapse: collapse; width: 100%; font-size: .86rem; font-variant-numeric: tabular-nums; }
+.sheet th, .sheet td { padding: 6px 5px; text-align: center; white-space: nowrap; border-bottom: 1px solid var(--line); }
+.sheet thead th { position: sticky; top: 0; background: var(--bg); font-size: .68rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.sheet td.d { text-align: left; font-weight: 700; padding-left: 10px; }
+.sheet td.d span { font-weight: 400; color: var(--muted); font-size: .78rem; }
+.sheet tr.fri td { background: var(--brass-soft); }
+.sheet tr.today td { background: var(--green-soft); }
+.sheet tr.today td.d { box-shadow: inset 3px 0 0 var(--green); }
+.sheet td.warn { background: var(--warn-soft) !important; color: var(--warn); font-weight: 700; }
+.empty { padding: 26px 18px; text-align: center; color: var(--muted); display: grid; gap: 10px; justify-items: center; }
+.say { font-size: .86rem; color: var(--muted); margin: 0; }
+.say.err { color: var(--warn); }
+.say.ok { color: var(--green); font-weight: 600; }
+
+/* Timetables */
+.status { display: grid; grid-template-columns: minmax(56px, auto) repeat(4, minmax(56px, 1fr)); gap: 6px; font-size: .8rem; }
+.status .mh { font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); text-align: center; align-self: end; }
+.status .mo { font-weight: 700; align-self: center; }
+.chip { border: 1px solid var(--line); border-radius: 8px; padding: 7px 4px; text-align: center; background: var(--surface); font-weight: 600; font-size: .76rem; }
+.chip.have { border-color: var(--green); color: var(--green); }
+.chip.local { border-color: var(--brass); color: var(--brass); }
+.chip.miss { border-style: dashed; color: var(--warn); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 16px; display: grid; gap: 12px; }
+.banner { background: var(--brass-soft); border: 1px solid var(--brass); border-radius: var(--r); padding: 12px 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: .88rem; }
+.banner span { flex: 1; min-width: 12em; }
+.field { display: grid; gap: 5px; }
+.field label { font-size: .74rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .07em; }
+.field input, .field select, .field textarea { border: 1px solid var(--line); border-radius: 8px; padding: 9px 10px; background: var(--bg); width: 100%; }
+.field textarea { min-height: 130px; resize: vertical; font-family: ui-monospace, Consolas, monospace; font-size: .8rem; }
+.row2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 9px; padding: 9px 14px; font-weight: 600; font-size: .9rem; }
+.btn.primary { background: var(--green); border-color: var(--green); color: var(--bg); }
+.btn:disabled { opacity: .5; cursor: default; }
+.block { border: 1px solid var(--line); border-radius: 10px; padding: 12px; display: grid; gap: 10px; background: var(--bg); }
+.block .top { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.block b { font-size: 1rem; }
+.mlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.mlist li { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; background: var(--bg); }
+.mlist .short { font-weight: 700; color: var(--brass); min-width: 3.5em; }
+.mlist .nm { flex: 1; min-width: 0; }
+details.panel > summary { cursor: pointer; font-family: var(--font-display); font-size: 1.2rem; list-style: none; }
+details.panel > summary::after { content: " ▸"; color: var(--muted); }
+details.panel[open] > summary::after { content: " ▾"; }
+pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 12px; font-size: .78rem; max-height: 320px; overflow: auto; margin: 0; }
+.foot { font-size: .78rem; color: var(--muted); display: grid; gap: 4px; }
+.foot a { color: var(--green); }
+@media (max-width: 380px) {
+  .t { font-size: 1.1rem; }
+  .brow > * { padding-inline: 5px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- TODAY -->
+  <section id="v-today" style="display:grid;gap:14px">
+    <div class="daybar">
+      <button class="iconbtn" id="d-prev" aria-label="Previous day">‹</button>
+      <div class="when">
+        <div class="gdate" id="gdate">&nbsp;</div>
+        <button class="todaybtn" id="d-today" hidden>Back to today</button>
+      </div>
+      <button class="iconbtn" id="d-next" aria-label="Next day">›</button>
+    </div>
+    <div class="next" id="next" hidden></div>
+    <div class="board" id="board"><div class="empty">Loading times…</div></div>
+    <ul class="notes" id="daynotes"></ul>
+    <fieldset class="pick" id="showpick"></fieldset>
+    <div class="fresh" id="fresh"></div>
+  </section>
+
+  <!-- MONTH -->
+  <section id="v-month" hidden style="display:grid;gap:12px">
+    <div class="mbar">
+      <button class="iconbtn" id="m-prev" aria-label="Previous month">‹</button>
+      <div class="mlabel" id="mlabel"></div>
+      <button class="iconbtn" id="m-next" aria-label="Next month">›</button>
+    </div>
+    <div id="msheet"></div>
+    <p class="say">Start times from London Prayer Times (East London Mosque timetable).</p>
+  </section>
+
+  <!-- TIMETABLES -->
+  <section id="v-data" hidden style="display:grid;gap:14px">
+    <div class="banner" id="pendingbar" hidden>
+      <span id="pendingtext"></span>
+      <button class="btn primary" id="pub-now">Publish now</button>
+    </div>
+
+    <div style="display:grid;gap:10px">
+      <h2>Timetables on file</h2>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="panel">
+      <h2>Add timetables</h2>
+      <p class="say">Give the AI prompt below to any AI with the timetable JPG or PDF, then paste its answer here.</p>
+      <div class="field"><label for="imp-text">AI answer</label>
+        <textarea id="imp-text" spellcheck="false" placeholder="MOSQUE: Markaz us-Sunnah&#10;TYPE: jamaah&#10;MONTH: 2026-11&#10;JUMUAH: 12:45&#10;DAY FAJR DHUHR ASR MAGHRIB ISHA&#10;01 06:15 12:30 14:30 16:37 19:30&#10;…"></textarea></div>
+      <div class="actions">
+        <button class="btn primary" id="imp-check">Check</button>
+        <button class="btn" id="imp-clear">Clear</button>
+      </div>
+      <p class="say" id="imp-say" aria-live="polite"></p>
+      <div id="imp-preview" style="display:grid;gap:10px"></div>
+      <div class="actions" id="imp-save-row" hidden><button class="btn primary" id="imp-save">Save timetables</button></div>
+    </div>
+
+    <details class="panel" id="promptpanel">
+      <summary>AI prompt</summary>
+      <p class="say">Copy this into ChatGPT, Gemini, Claude or any AI, attach the timetable image or PDF, and send.</p>
+      <div class="actions"><button class="btn primary" id="copy-prompt">Copy prompt</button></div>
+      <pre class="prompt" id="prompt"></pre>
+    </details>
+
+    <details class="panel">
+      <summary>Jamā‘ah mosques</summary>
+      <p class="say">Start times always come from London Prayer Times. Pasting a timetable for a new mosque adds it automatically, or add one here.</p>
+      <ul class="mlist" id="mlist"></ul>
+      <div class="row2">
+        <div class="field"><label for="mq-name">Mosque name</label><input id="mq-name" placeholder="e.g. Wembley Central Masjid" maxlength="60"></div>
+        <div class="field"><label for="mq-short">Column name</label><input id="mq-short" placeholder="e.g. WCM" maxlength="8"></div>
+      </div>
+      <div class="actions"><button class="btn" id="mq-add">Add mosque</button></div>
+      <p class="say" id="mq-say" aria-live="polite"></p>
+    </details>
+
+    <details class="panel" id="pubpanel">
+      <summary>Publishing</summary>
+      <p class="say">Changes you save go live for everyone once this phone is connected to the website's GitHub repository. The key stays on this device only.</p>
+      <div class="row2">
+        <div class="field"><label for="gh-owner">GitHub user</label><input id="gh-owner" autocomplete="off" autocapitalize="off"></div>
+        <div class="field"><label for="gh-repo">Repository</label><input id="gh-repo" autocomplete="off" autocapitalize="off" placeholder="salah-times"></div>
+        <div class="field"><label for="gh-branch">Branch</label><input id="gh-branch" autocomplete="off" autocapitalize="off" placeholder="main"></div>
+      </div>
+      <div class="field"><label for="gh-token">Access token</label><input id="gh-token" type="password" autocomplete="off" placeholder="github_pat_…"></div>
+      <div class="actions">
+        <button class="btn primary" id="gh-save">Save and test</button>
+        <button class="btn" id="gh-forget">Remove from this phone</button>
+        <button class="btn" id="dl-data">Download data file</button>
+      </div>
+      <p class="say" id="gh-say" aria-live="polite"></p>
+    </details>
+
+    <div class="foot">
+      <span>Start times: <a href="https://www.londonprayertimes.com/" target="_blank" rel="noopener">London Prayer Times</a>, sourced from East London Mosque. Jamā‘ah times as published by each mosque.</span>
+      <span>Confirm with the mosque if in doubt.</span>
+    </div>
+  </section>
+</div>
+
+<nav class="nav" role="tablist" aria-label="Views">
+  <button id="tab-today" role="tab" aria-selected="true" data-view="today">Today</button>
+  <button id="tab-month" role="tab" aria-selected="false" data-view="month">Month</button>
+  <button id="tab-data" role="tab" aria-selected="false" data-view="data">Timetables</button>
+</nav>
+
+<script>
+"use strict";
+/* ---------- Constants ---------- */
+const START_COLS = ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"];
+const JAM_COLS = ["fajr", "dhuhr", "asr", "maghrib", "isha"];
+const LABEL = { fajr: "Fajr", sunrise: "Sunrise", dhuhr: "Dhuhr", asr: "‘Asr", maghrib: "Maghrib", isha: "‘Ishā" };
+const KIND = { fajr: "am", sunrise: "am", dhuhr: "noon", asr: "pm", maghrib: "pm", isha: "pm" };
+const ROWS = [
+  { k: "fajr" }, { k: "sunrise", sun: true }, { k: "dhuhr", fri: "Jumu‘ah" },
+  { k: "asr" }, { k: "maghrib" }, { k: "isha" },
+];
+const DATA_URL = "data/timetables.json";
+const REFRESH_MS = 3 * 3600 * 1000;
+
+const PROMPT = `You are converting a mosque prayer timetable (attached as an image or PDF) into plain text for my prayer-times website.
+
+1. Work out the mosque's name and which month or months (and year) the timetable covers. A sheet can cover one month, several months or a whole year. Write one block per month.
+2. Choose the block type:
+   - East London Mosque or London Prayer Times: TYPE: start, with the start ("begins") times.
+   - Any other mosque: TYPE: jamaah, with the jamā'ah / iqāmah / congregation times.
+3. Reply with only the blocks, inside one code block. No other text.
+
+Jamā'ah block:
+MOSQUE: <mosque name as printed>
+TYPE: jamaah
+MONTH: <YYYY-MM>
+JUMUAH: <Friday khutbah or Jumu'ah time as HH:MM, or - if not stated>
+DAY FAJR DHUHR ASR MAGHRIB ISHA
+01 06:00 13:30 16:15 18:31 20:30
+02 ...
+
+Start-time block (East London Mosque / London Prayer Times only):
+MOSQUE: East London Mosque
+TYPE: start
+MONTH: <YYYY-MM>
+DAY FAJR SUNRISE DHUHR ASR MAGHRIB ISHA
+01 05:30 06:58 12:55 15:56 18:42 20:00
+02 ...
+
+Rules:
+- Every time in 24-hour HH:MM. Timetables often leave out am/pm: Fajr and sunrise are in the morning, Dhuhr is around midday (11:00 to 13:59), and Asr, Maghrib and Isha are afternoon or evening, so 4:30 means 16:30.
+- One line per day, starting at 01, covering every day of the month in order.
+- If only one Maghrib time is shown (prayed at sunset), use that time.
+- For Asr start times, use the earlier (first / 1 Mithl / Shafi'i) time.
+- On Fridays, give the Jumu'ah time in the DHUHR column if the sheet shows one for that day.
+- Copy times exactly as printed, including the clock-change days. Never estimate or calculate a missing time: write - instead.
+- Before replying, check every line has the right number of times and that the times increase through each day.`;
+
+/* ---------- Small helpers ---------- */
+const $ = id => document.getElementById(id);
+const pad = n => String(n).padStart(2, "0");
+const mkey = d => d.getFullYear() + "-" + pad(d.getMonth() + 1);
+const monthName = key => { const [y, m] = key.split("-").map(Number); return new Date(y, m - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" }); };
+const daysIn = key => { const [y, m] = key.split("-").map(Number); return new Date(y, m, 0).getDate(); };
+const shiftMonth = (key, by) => { const [y, m] = key.split("-").map(Number); return mkey(new Date(y, m - 1 + by, 1)); };
+const toMin = t => (t && /^\d\d:\d\d$/.test(t)) ? (+t.slice(0, 2)) * 60 + (+t.slice(3)) : null;
+const startOfDay = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const norm = s => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+const slug = s => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 40) || "mosque";
+const clone = o => JSON.parse(JSON.stringify(o));
+function load(k, fallback) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : fallback; } catch { return fallback; } }
+function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+
+// Always a 12-hour clock with a small am/pm.
+function fmt(t) {
+  if (!t) return "—";
+  if (!/^\d\d:\d\d$/.test(t)) return esc(t);
+  const h = +t.slice(0, 2);
+  return `${h % 12 || 12}:${t.slice(3)}<span class="ap">${h < 12 ? "am" : "pm"}</span>`;
+}
+function fmtPlain(t) {
+  if (!t || !/^\d\d:\d\d$/.test(t)) return t || "—";
+  const h = +t.slice(0, 2);
+  return `${h % 12 || 12}:${t.slice(3)}${h < 12 ? "am" : "pm"}`;
+}
+
+// Accepts "5:30", "17:30", "5.30pm", "5:30 PM"; times without am/pm are placed by prayer.
+function normTime(v, kind) {
+  if (v == null) return null;
+  v = String(v).trim().toLowerCase();
+  if (!v || v === "-" || v === "—" || v === "null") return null;
+  const m = v.match(/^(\d{1,2})[:.](\d{2})\s*(am|pm|a\.m\.|p\.m\.)?$/);
+  if (!m) return undefined;
+  let h = +m[1]; const mi = +m[2]; const ap = m[3] ? m[3][0] : null;
+  if (ap === "p" && h < 12) h += 12;
+  else if (ap === "a" && h === 12) h = 0;
+  else if (!ap) {
+    if (kind === "pm" && h < 12) h += 12;
+    if (kind === "noon" && h < 11) h += 12;
+  }
+  if (h > 23 || mi > 59) return undefined;
+  return pad(h) + ":" + pad(mi);
+}
+
+/* ---------- Data ----------
+   timetables.json: { updated, mosques:[{id,name,short}],
+     start:  { "YYYY-MM": { days: [[fajr,sunrise,dhuhr,asr,maghrib,isha], …] } },
+     jamaah: { mosqueId: { "YYYY-MM": { jumuah, days: [[fajr,dhuhr,asr,maghrib,isha], …] } } } } */
+const cached = load("st-cache", null);
+let server = cached ? cached.data : null;
+let fetchedAt = cached ? cached.at : 0;
+let pending = load("st-pending", []);
+let D = null;
+
+function emptyData() { return { mosques: [], start: {}, jamaah: {} }; }
+function applyOps(base, ops) {
+  const d = clone(base || emptyData());
+  d.mosques = d.mosques || []; d.start = d.start || {}; d.jamaah = d.jamaah || {};
+  for (const o of ops) {
+    if (o.op === "start") d.start[o.month] = o.value;
+    else if (o.op === "jamaah") (d.jamaah[o.id] = d.jamaah[o.id] || {})[o.month] = o.value;
+    else if (o.op === "addMosque") { if (!d.mosques.some(m => m.id === o.mosque.id)) d.mosques.push(o.mosque); }
+    else if (o.op === "removeMosque") d.mosques = d.mosques.filter(m => m.id !== o.id);
+  }
+  return d;
+}
+// Keep last month onwards so the file stays small.
+function prune(d) {
+  const keep = shiftMonth(mkey(new Date()), -1);
+  for (const k of Object.keys(d.start)) if (k < keep) delete d.start[k];
+  for (const id of Object.keys(d.jamaah)) for (const k of Object.keys(d.jamaah[id])) if (k < keep) delete d.jamaah[id][k];
+  return d;
+}
+function recompute() { D = applyOps(server, pending); }
+recompute();
+
+function startRow(date) {
+  const m = D.start[mkey(date)], r = m && m.days && m.days[date.getDate() - 1];
+  if (!r) return null;
+  const o = {}; START_COLS.forEach((k, i) => o[k] = r[i] || null); return o;
+}
+function jamRow(id, date) {
+  const m = D.jamaah[id] && D.jamaah[id][mkey(date)], r = m && m.days && m.days[date.getDate() - 1];
+  if (!r) return null;
+  const o = {}; JAM_COLS.forEach((k, i) => o[k] = r[i] || null); return o;
+}
+const mosques = () => D.mosques || [];
+const hidden = new Set(load("st-hidden", []));
+const shownMosques = () => mosques().filter(m => !hidden.has(m.id));
+
+async function fetchData(force) {
+  if (!force && server && Date.now() - fetchedAt < REFRESH_MS) return;
+  try {
+    const r = await fetch(DATA_URL + "?t=" + Date.now(), { cache: "no-store" });
+    if (!r.ok) throw new Error(r.status);
+    server = await r.json(); fetchedAt = Date.now();
+    save("st-cache", { data: server, at: fetchedAt });
+    recompute(); render();
+  } catch (e) {
+    if (!server) { $("board").innerHTML = '<div class="empty">Couldn\'t load the times. Check your connection and try again.<button class="btn" id="retry">Try again</button></div>'; }
+    renderFresh(true);
+  }
+}
+
+/* ---------- State ---------- */
+const ui = { view: "today", day: startOfDay(new Date()), mKey: mkey(new Date()), preview: null, removing: null };
+
+/* ---------- Today ---------- */
+function renderToday() {
+  const d = ui.day;
+  const isToday = +d === +startOfDay(new Date());
+  $("gdate").textContent = d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  $("d-today").hidden = isToday;
+  if (!server && !pending.length) return;
+  const st = startRow(d);
+  const jam = shownMosques().map(m => ({ m, row: jamRow(m.id, d) }));
+  const fri = d.getDay() === 5;
+  const notes = [];
+  if (!st && !jam.some(x => x.row)) {
+    $("board").innerHTML = `<div class="empty">No times on file for ${esc(monthName(mkey(d)))} yet.</div>`;
+    $("next").hidden = true;
+  } else {
+    const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
+    const nextIdx = isToday ? ROWS.findIndex(r => { const t = toMin(st && st[r.k]); return t != null && t > nowMin; }) : -1;
+    const tmpl = `style="grid-template-columns: minmax(78px, 1.1fr) repeat(${1 + jam.length}, minmax(76px, 1fr))"`;
+    let html = `<div class="brow groups" ${tmpl}><span></span><span class="col elm" title="London Prayer Times">Start</span>${jam.map(x => `<span class="col" title="${esc(x.m.name)}">${esc(x.m.short)}</span>`).join("")}</div>
+      <div class="brow head" ${tmpl}><span>Prayer</span><span>Begins</span>${jam.map(() => "<span>Jamā‘ah</span>").join("")}</div>`;
+    ROWS.forEach((r, i) => {
+      const cls = ["brow", r.sun ? "sun" : "", isToday && (nextIdx === -1 || i < nextIdx) ? "past" : "", i === nextIdx ? "is-next" : ""].join(" ");
+      const b = st && st[r.k];
+      html += `<div class="${cls}" ${tmpl}><span class="pname">${fri && r.fri ? r.fri : LABEL[r.k]}</span><span class="t tn ${b ? "" : "none"}">${fmt(b)}</span>${
+        jam.map(x => { const j = !r.sun && x.row ? x.row[r.k] : null; return `<span class="t j tn ${j || r.sun ? "" : "none"}">${r.sun ? "" : fmt(j)}</span>`; }).join("")}</div>`;
+    });
+    $("board").innerHTML = html;
+    renderNext(st, jam, nextIdx, isToday);
+  }
+  if (!st) notes.push(`<li class="missing">No start times for ${esc(monthName(mkey(d)))} yet.</li>`);
+  jam.forEach(x => {
+    if (!x.row) notes.push(`<li class="missing">${esc(x.m.name)}: no timetable for ${esc(monthName(mkey(d)))} yet.</li>`);
+    const mo = D.jamaah[x.m.id] && D.jamaah[x.m.id][mkey(d)];
+    if (fri && mo && mo.jumuah) notes.push(`<li>${esc(x.m.name)} Jumu‘ah khutbah ${fmtPlain(mo.jumuah)}.</li>`);
+  });
+  $("daynotes").innerHTML = notes.join("");
+}
+
+function renderNext(st, jam, idx, isToday) {
+  const box = $("next");
+  if (!isToday) { box.hidden = true; return; }
+  let r, s = st, j = jam, label = "Next", day = new Date();
+  if (idx >= 0) r = ROWS[idx];
+  else {
+    day = new Date(ui.day); day.setDate(day.getDate() + 1);
+    s = startRow(day); j = jam.map(x => ({ m: x.m, row: jamRow(x.m.id, day) }));
+    r = ROWS[0]; label = "Next · tomorrow";
+  }
+  const b = s && s[r.k], bm = toMin(b);
+  if (bm == null) { box.hidden = true; return; }
+  const now = new Date();
+  const nowSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
+  const secs = bm * 60 - nowSec + (idx < 0 ? 86400 : 0);
+  const name = day.getDay() === 5 && r.fri ? r.fri : LABEL[r.k];
+  const jamLines = jam.map(x => {
+    const nj = nextJamaah(x.m.id, nowSec);
+    if (!nj) return `<div class="jl"><b>${esc(x.m.short)}</b><span>No timetable</span><span></span></div>`;
+    // Name the prayer only when this jamā‘ah belongs to an earlier prayer than the one counted down above
+    // (its start time has passed but the jamā‘ah hasn't happened yet).
+    const same = nj.k === r.k && !!nj.tomorrow === (idx < 0);
+    return `<div class="jl"><b>${esc(x.m.short)}</b><span class="tn">${same ? "" : nj.name + " "}${fmtPlain(nj.time)}</span><span class="tn">${countdown(nj.secs)}</span></div>`;
+  }).join("");
+  box.innerHTML = `<div><div class="lbl">${label}</div><div class="nm">${name}</div><div class="sub tn">Begins ${fmtPlain(b)}</div></div><div class="cd tn"><small>starts in</small>${countdown(secs)}</div>${
+    jamLines ? `<div class="jams">${jamLines}</div>` : ""}`;
+  box.hidden = false;
+}
+
+function countdown(secs) {
+  const mins = Math.ceil(secs / 60);
+  return secs < 60 ? `${secs}s` : mins >= 60 ? `${Math.floor(mins / 60)}h ${pad(mins % 60)}m` : `${mins} min`;
+}
+
+// The next jamā‘ah still to come at a mosque: later today, otherwise tomorrow's Fajr.
+function nextJamaah(id, nowSec) {
+  const today = startOfDay(new Date());
+  const row = jamRow(id, today);
+  for (const k of JAM_COLS) {
+    const m = toMin(row && row[k]);
+    if (m != null && m * 60 > nowSec) return { k, name: today.getDay() === 5 && k === "dhuhr" ? "Jumu‘ah" : LABEL[k], time: row[k], secs: m * 60 - nowSec };
+  }
+  const tm = new Date(today); tm.setDate(tm.getDate() + 1);
+  const r2 = jamRow(id, tm), m2 = toMin(r2 && r2.fajr);
+  return m2 == null ? null : { k: "fajr", name: "Fajr", time: r2.fajr, secs: m2 * 60 + 86400 - nowSec, tomorrow: true };
+}
+
+function renderPick() {
+  const list = mosques();
+  $("showpick").innerHTML = list.length ? `<legend>Show jamā‘ah</legend>` + list.map(m =>
+    `<label class="${hidden.has(m.id) ? "" : "on"}" title="${esc(m.name)}"><input type="checkbox" id="pick-${esc(m.id)}" data-pick="${esc(m.id)}" ${hidden.has(m.id) ? "" : "checked"}>${esc(m.short)}</label>`).join("") : "";
+}
+function renderFresh(failed) {
+  const when = fetchedAt ? ago(fetchedAt) : "never";
+  $("fresh").innerHTML = `<span>${failed ? "Offline. " : ""}Times updated ${when}.</span><button class="linkbtn" id="refresh">Refresh</button>`;
+}
+function ago(t) {
+  const m = Math.round((Date.now() - t) / 60000);
+  if (m < 1) return "just now"; if (m < 60) return `${m} min ago`;
+  const h = Math.round(m / 60); if (h < 24) return `${h} hour${h > 1 ? "s" : ""} ago`;
+  const d = Math.round(h / 24); return `${d} day${d > 1 ? "s" : ""} ago`;
+}
+
+/* ---------- Month ---------- */
+function renderMonth() {
+  $("mlabel").textContent = monthName(ui.mKey);
+  const m = D.start[ui.mKey];
+  if (!m) { $("msheet").innerHTML = `<div class="scroll"><div class="empty">No start times on file for ${esc(monthName(ui.mKey))}.</div></div>`; return; }
+  $("msheet").innerHTML = `<div class="scroll">${sheet(ui.mKey, m.days, START_COLS)}</div>`;
+}
+function sheet(key, days, cols, flags) {
+  const [y, mo] = key.split("-").map(Number), n = daysIn(key), today = startOfDay(new Date());
+  let h = `<table class="sheet"><thead><tr><th style="text-align:left;padding-left:10px">Date</th>${cols.map(k => `<th>${LABEL[k]}</th>`).join("")}</tr></thead><tbody>`;
+  for (let d = 1; d <= n; d++) {
+    const dt = new Date(y, mo - 1, d), r = days[d - 1] || [];
+    const cls = [dt.getDay() === 5 ? "fri" : "", +dt === +today ? "today" : ""].join(" ");
+    h += `<tr class="${cls}"><td class="d">${d} <span>${dt.toLocaleDateString("en-GB", { weekday: "short" })}</span></td>${
+      cols.map((k, i) => `<td class="${flags && flags.has(d + ":" + i) ? "warn" : ""}">${r[i] ? fmt(r[i]) : ""}</td>`).join("")}</tr>`;
+  }
+  return h + "</tbody></table>";
+}
+
+/* ---------- Timetables tab ---------- */
+function renderData() {
+  const base = mkey(new Date());
+  const keys = [-1, 0, 1, 2].map(o => shiftMonth(base, o));
+  const pendingKeys = new Set(pending.filter(o => o.month).map(o => (o.op === "start" ? "elm" : o.id) + ":" + o.month));
+  let h = `<span></span>` + keys.map(k => `<span class="mh">${new Date(+k.slice(0, 4), +k.slice(5) - 1, 1).toLocaleDateString("en-GB", { month: "short" })}</span>`).join("");
+  const rows = [{ id: "elm", short: "Start", name: "Start times (London Prayer Times)" }, ...mosques()];
+  for (const m of rows) {
+    h += `<span class="mo" title="${esc(m.name)}">${esc(m.short)}</span>`;
+    for (const k of keys) {
+      const have = m.id === "elm" ? D.start[k] : D.jamaah[m.id] && D.jamaah[m.id][k];
+      const local = pendingKeys.has(m.id + ":" + k);
+      h += `<span class="chip ${local ? "local" : have ? "have" : "miss"}">${local ? "Not published" : have ? "✓" : "Missing"}</span>`;
+    }
+  }
+  $("status").innerHTML = h;
+  $("pendingbar").hidden = !pending.length;
+  if (pending.length) $("pendingtext").textContent = `${pending.length} change${pending.length > 1 ? "s" : ""} saved on this device only. Publish to update the website for everyone.`;
+  $("mlist").innerHTML = mosques().map(m => `<li><span class="short">${esc(m.short)}</span><span class="nm">${esc(m.name)}</span>${
+    ui.removing === m.id ? `<span class="say">Remove from the list?</span><button class="btn" data-rmyes="${esc(m.id)}">Remove</button><button class="btn" data-rmno="1">Keep</button>`
+      : `<button class="linkbtn" data-rm="${esc(m.id)}">Remove</button>`}</li>`).join("") || `<li class="say">No jamā‘ah mosques yet.</li>`;
+  const gh = load("st-gh", {});
+  for (const k of ["owner", "repo", "branch"]) if (document.activeElement !== $("gh-" + k)) $("gh-" + k).value = gh[k] || "";
+}
+
+/* Parse pasted AI output into month blocks. */
+function parseImport(text) {
+  const blocks = []; let cur = null;
+  const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.replace(/[`*]/g, "").replace(/\s*\b(am|pm)\b/gi, "$1").trim();
+    if (!line) continue;
+    let m;
+    if ((m = line.match(/^MOSQUE\s*:\s*(.+)$/i))) { cur = { name: m[1].trim(), type: "jamaah", month: null, jumuah: null, rows: [] }; blocks.push(cur); continue; }
+    if (!cur) continue;
+    if ((m = line.match(/^TYPE\s*:\s*(.+)$/i))) { cur.type = /start|begin/i.test(m[1]) ? "start" : "jamaah"; continue; }
+    if ((m = line.match(/^MONTH\s*:\s*(.+)$/i))) {
+      const v = m[1].trim(); let mm;
+      if ((mm = v.match(/^(\d{4})[-\/](\d{1,2})/))) cur.month = mm[1] + "-" + pad(+mm[2]);
+      else if ((mm = v.toLowerCase().match(/([a-z]{3})[a-z]*\s+(\d{4})/)) && MONTHS.includes(mm[1])) cur.month = mm[2] + "-" + pad(MONTHS.indexOf(mm[1]) + 1);
+      continue;
+    }
+    if ((m = line.match(/^JUMU\S*\s*:\s*(.+)$/i))) { cur.jumuah = normTime(m[1], "noon") || null; continue; }
+    if (/^DAY\b/i.test(line)) continue;
+    if ((m = line.match(/^(\d{1,2})[\s,|;]+(.+)$/))) cur.rows.push({ d: +m[1], vals: m[2].split(/[\s,|;]+/).filter(Boolean) });
+  }
+  return blocks.map(checkBlock);
+}
+function checkBlock(b) {
+  const cols = b.type === "start" ? START_COLS : JAM_COLS;
+  const problems = [], flags = new Set();
+  if (!b.month) problems.push("No month found.");
+  const n = b.month ? daysIn(b.month) : 31;
+  const days = Array.from({ length: n }, () => cols.map(() => null));
+  const seen = new Set();
+  for (const r of b.rows) {
+    if (r.d < 1 || r.d > n) { problems.push(`Day ${r.d} doesn't exist in this month.`); continue; }
+    seen.add(r.d);
+    if (r.vals.length !== cols.length) { problems.push(`Day ${r.d} has ${r.vals.length} times instead of ${cols.length}.`); cols.forEach((_, i) => flags.add(r.d + ":" + i)); }
+    cols.forEach((k, i) => {
+      const t = normTime(r.vals[i], KIND[k]);
+      if (t === undefined) { flags.add(r.d + ":" + i); } else days[r.d - 1][i] = t;
+    });
+    let last = -1;
+    days[r.d - 1].forEach((t, i) => { const v = toMin(t); if (v == null) return; if (v <= last) flags.add(r.d + ":" + i); last = v; });
+  }
+  const missing = []; for (let d = 1; d <= n; d++) if (!seen.has(d)) missing.push(d);
+  if (missing.length) problems.push(missing.length === n ? "No days found." : `Missing day${missing.length > 1 ? "s" : ""} ${missing.join(", ")}.`);
+  // Start times drift a minute or two a day; jamā‘ah times step by 15–30 min. Clock changes move everything ~60 min.
+  const limit = b.type === "start" ? 20 : 35;
+  for (let d = 2; d <= n; d++) cols.forEach((_, i) => {
+    const a = toMin(days[d - 2][i]), c = toMin(days[d - 1][i]);
+    if (a != null && c != null) { const dl = Math.abs(c - a); if (dl > limit && !(dl >= 45 && dl <= 90)) flags.add(d + ":" + i); }
+  });
+  let target = "elm";
+  if (b.type === "jamaah") {
+    const nb = norm(b.name);
+    const hit = mosques().find(m => norm(m.name) === nb || norm(m.short) === nb || (nb.length > 5 && (norm(m.name).includes(nb) || nb.includes(norm(m.name)))));
+    target = hit ? hit.id : "new";
+  }
+  return { ...b, cols, days, problems, flags, target, include: !!b.month && seen.size > 0, newShort: initials(b.name) };
+}
+function initials(name) { return String(name).split(/[\s-]+/).filter(w => /^[A-Za-z]/.test(w) && !/^(us|al|as|ul|of|the|and)$/i.test(w)).map(w => w[0].toUpperCase()).join("").slice(0, 5) || "NEW"; }
+
+function renderPreview() {
+  const p = ui.preview;
+  if (!p) { $("imp-preview").innerHTML = ""; $("imp-save-row").hidden = true; return; }
+  $("imp-preview").innerHTML = p.map((b, i) => {
+    const sel = b.type === "start"
+      ? `<span class="say">Start times (London Prayer Times)</span>`
+      : `<div class="row2"><div class="field"><label for="bk-${i}-m">Mosque</label><select id="bk-${i}-m" data-bk="${i}" data-f="target">${
+          mosques().map(m => `<option value="${esc(m.id)}" ${b.target === m.id ? "selected" : ""}>${esc(m.name)}</option>`).join("")}
+          <option value="new" ${b.target === "new" ? "selected" : ""}>Add new: ${esc(b.name)}</option></select></div>${
+          b.target === "new" ? `<div class="field"><label for="bk-${i}-s">Column name</label><input id="bk-${i}-s" data-bk="${i}" data-f="newShort" maxlength="8" value="${esc(b.newShort)}"></div>` : ""}</div>`;
+    const warn = b.problems.length || b.flags.size
+      ? `<p class="say err">${esc(b.problems.join(" "))}${b.flags.size ? ` ${b.flags.size} time${b.flags.size > 1 ? "s look" : " looks"} wrong (highlighted).` : ""}</p>`
+      : `<p class="say ok">All ${b.month ? daysIn(b.month) : ""} days look right.</p>`;
+    return `<div class="block"><div class="top"><b>${esc(b.month ? monthName(b.month) : "Unknown month")}</b>
+      <label class="say"><input type="checkbox" id="bk-${i}-inc" data-bk="${i}" data-f="include" ${b.include ? "checked" : ""}> Save this month</label></div>
+      ${sel}${warn}${b.jumuah ? `<span class="say">Jumu‘ah khutbah ${fmtPlain(b.jumuah)}</span>` : ""}
+      <div class="scroll">${b.month ? sheet(b.month, b.days, b.cols, b.flags) : ""}</div></div>`;
+  }).join("");
+  $("imp-save-row").hidden = !p.some(b => b.include);
+}
+
+function saveImport() {
+  const p = ui.preview; if (!p) return;
+  const ops = [], added = new Map();
+  for (const b of p.filter(b => b.include && b.month)) {
+    if (b.type === "start") { ops.push({ op: "start", month: b.month, value: { days: b.days } }); continue; }
+    let id = b.target;
+    if (id === "new") {
+      const key = norm(b.name);
+      if (added.has(key)) id = added.get(key);
+      else {
+        id = slug(b.name); if (mosques().some(m => m.id === id) || id === "elm") id += "-" + Date.now().toString(36).slice(-4);
+        ops.push({ op: "addMosque", mosque: { id, name: b.name, short: (b.newShort || initials(b.name)).trim().slice(0, 8) } });
+        added.set(key, id);
+      }
+    }
+    const value = { days: b.days }; if (b.jumuah) value.jumuah = b.jumuah;
+    ops.push({ op: "jamaah", id, month: b.month, value });
+  }
+  if (!ops.length) return;
+  pending.push(...ops); save("st-pending", pending); recompute();
+  ui.preview = null; $("imp-text").value = ""; renderPreview();
+  const months = ops.filter(o => o.month).length;
+  say("imp-say", `Saved ${months} month${months > 1 ? "s" : ""} on this device.`, "ok");
+  render(); publishIfReady("imp-say");
+}
+
+/* ---------- Publishing to GitHub ---------- */
+const b64enc = s => btoa(unescape(encodeURIComponent(s)));
+const b64dec = s => decodeURIComponent(escape(atob(s.replace(/\s/g, ""))));
+function ghConf() { const g = load("st-gh", {}); return g.owner && g.repo && g.token ? { ...g, branch: g.branch || "main" } : null; }
+async function ghGet(g) {
+  const r = await fetch(`https://api.github.com/repos/${encodeURIComponent(g.owner)}/${encodeURIComponent(g.repo)}/contents/${DATA_URL}?ref=${encodeURIComponent(g.branch)}`,
+    { headers: { Authorization: "Bearer " + g.token, Accept: "application/vnd.github+json" }, cache: "no-store" });
+  if (r.status === 401) throw new Error("The access token was refused. Check it hasn't expired.");
+  if (r.status === 404) throw new Error("Couldn't find data/timetables.json in that repository. Check the user, repository and branch.");
+  if (!r.ok) throw new Error("GitHub answered " + r.status + ".");
+  return r.json();
+}
+async function publish() {
+  const g = ghConf(); if (!g) throw new Error("Publishing isn't set up on this device yet.");
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const file = await ghGet(g);
+    const next = prune(applyOps(JSON.parse(b64dec(file.content)), pending));
+    next.updated = new Date().toISOString();
+    const r = await fetch(`https://api.github.com/repos/${encodeURIComponent(g.owner)}/${encodeURIComponent(g.repo)}/contents/${DATA_URL}`, {
+      method: "PUT", headers: { Authorization: "Bearer " + g.token, Accept: "application/vnd.github+json", "Content-Type": "application/json" },
+      body: JSON.stringify({ message: "Update timetables from the website", content: b64enc(JSON.stringify(next)), sha: file.sha, branch: g.branch }),
+    });
+    if (r.status === 409 || r.status === 422) continue;
+    if (r.status === 403) throw new Error("The token can't write to this repository. Give it Contents: Read and write.");
+    if (!r.ok) throw new Error("GitHub answered " + r.status + ".");
+    server = next; fetchedAt = Date.now(); save("st-cache", { data: server, at: fetchedAt });
+    pending = []; save("st-pending", pending); recompute();
+    return;
+  }
+  throw new Error("Someone else updated the file at the same time. Press Publish now again.");
+}
+async function publishIfReady(sayId) {
+  if (!ghConf()) { say(sayId, $(sayId).textContent + " Set up Publishing to put it on the website.", "ok"); return; }
+  say(sayId, "Publishing…");
+  try { await publish(); say(sayId, "Published. Other phones get it within a few minutes.", "ok"); render(); }
+  catch (e) { say(sayId, e.message + " Your changes are kept on this device.", "err"); render(); }
+}
+function say(id, msg, kind) { const el = $(id); el.textContent = msg; el.className = "say" + (kind ? " " + kind : ""); }
+
+/* ---------- Views & events ---------- */
+function showView(v) {
+  ui.view = v;
+  for (const id of ["today", "month", "data"]) { $("v-" + id).hidden = id !== v; $("tab-" + id).setAttribute("aria-selected", id === v); }
+  try { sessionStorage.setItem("st-view", v); } catch {}
+  window.scrollTo(0, 0);
+  render();
+}
+function render() {
+  renderPick(); renderFresh();
+  if (ui.view === "today") renderToday();
+  if (ui.view === "month") renderMonth();
+  if (ui.view === "data") { renderData(); renderPreview(); }
+}
+
+document.addEventListener("click", async e => {
+  const t = e.target.closest("button"); if (!t) return;
+  if (t.dataset.view) return showView(t.dataset.view);
+  if (t.dataset.rm) { ui.removing = t.dataset.rm; return renderData(); }
+  if (t.dataset.rmno) { ui.removing = null; return renderData(); }
+  if (t.dataset.rmyes) {
+    pending.push({ op: "removeMosque", id: t.dataset.rmyes }); save("st-pending", pending); ui.removing = null; recompute(); render();
+    say("mq-say", "Removed."); return publishIfReady("mq-say");
+  }
+  switch (t.id) {
+    case "d-prev": ui.day = new Date(ui.day.getFullYear(), ui.day.getMonth(), ui.day.getDate() - 1); return renderToday();
+    case "d-next": ui.day = new Date(ui.day.getFullYear(), ui.day.getMonth(), ui.day.getDate() + 1); return renderToday();
+    case "d-today": ui.day = startOfDay(new Date()); return renderToday();
+    case "m-prev": ui.mKey = shiftMonth(ui.mKey, -1); return renderMonth();
+    case "m-next": ui.mKey = shiftMonth(ui.mKey, 1); return renderMonth();
+    case "refresh": case "retry": $("fresh").textContent = "Refreshing…"; return fetchData(true);
+    case "imp-check": {
+      const blocks = parseImport($("imp-text").value);
+      if (!blocks.length) { ui.preview = null; renderPreview(); return say("imp-say", "Couldn't find any timetable in that text. It should start with a MOSQUE: line, as in the AI prompt.", "err"); }
+      ui.preview = blocks; renderPreview();
+      return say("imp-say", `Found ${blocks.length} month${blocks.length > 1 ? "s" : ""}. Check them below, then save.`);
+    }
+    case "imp-clear": ui.preview = null; $("imp-text").value = ""; say("imp-say", ""); return renderPreview();
+    case "imp-save": return saveImport();
+    case "pub-now": return publishIfReady("imp-say");
+    case "copy-prompt":
+      try { await navigator.clipboard.writeText(PROMPT); t.textContent = "Copied"; setTimeout(() => t.textContent = "Copy prompt", 2000); }
+      catch { const sel = getSelection(), rg = document.createRange(); rg.selectNodeContents($("prompt")); sel.removeAllRanges(); sel.addRange(rg); t.textContent = "Selected. Copy it now"; }
+      return;
+    case "mq-add": {
+      const name = $("mq-name").value.trim(), short = $("mq-short").value.trim();
+      if (!name || !short) return say("mq-say", "Enter both a name and a column name.", "err");
+      let id = slug(name); if (id === "elm" || mosques().some(m => m.id === id)) id += "-" + Date.now().toString(36).slice(-4);
+      pending.push({ op: "addMosque", mosque: { id, name, short: short.slice(0, 8) } }); save("st-pending", pending); recompute();
+      $("mq-name").value = ""; $("mq-short").value = ""; render();
+      say("mq-say", `Added ${name}.`, "ok"); return publishIfReady("mq-say");
+    }
+    case "gh-save": {
+      const g = { owner: $("gh-owner").value.trim(), repo: $("gh-repo").value.trim(), branch: $("gh-branch").value.trim() || "main", token: $("gh-token").value.trim() || load("st-gh", {}).token || "" };
+      if (!g.owner || !g.repo || !g.token) return say("gh-say", "Fill in the user, repository and token.", "err");
+      save("st-gh", g); $("gh-token").value = ""; say("gh-say", "Testing…");
+      try { await ghGet({ ...g }); say("gh-say", "Connected. Saved changes will now go live." + (pending.length ? " Press Publish now to send the waiting ones." : ""), "ok"); }
+      catch (err) { say("gh-say", err.message, "err"); }
+      return;
+    }
+    case "gh-forget": save("st-gh", {}); renderData(); return say("gh-say", "Removed the publishing details from this device.");
+    case "dl-data": {
+      const blob = new Blob([JSON.stringify(prune(clone(D)))], { type: "application/json" });
+      const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "timetables.json"; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 5000); return;
+    }
+  }
+});
+document.addEventListener("change", e => {
+  const el = e.target;
+  if (el.dataset.pick) {
+    if (el.checked) hidden.delete(el.dataset.pick); else hidden.add(el.dataset.pick);
+    save("st-hidden", [...hidden]); renderPick(); return renderToday();
+  }
+  if (el.dataset.bk && ui.preview) {
+    const b = ui.preview[+el.dataset.bk];
+    if (el.dataset.f === "include") b.include = el.checked;
+    else if (el.dataset.f === "target") b.target = el.value;
+    else if (el.dataset.f === "newShort") b.newShort = el.value;
+    renderPreview();
+  }
+});
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { ui.day = $("d-today").hidden ? startOfDay(new Date()) : ui.day; fetchData(false); render(); } });
+
+/* ---------- Boot ---------- */
+$("prompt").textContent = PROMPT;
+let startView = "today"; try { startView = sessionStorage.getItem("st-view") || "today"; } catch {}
+showView(["today", "month", "data"].includes(startView) ? startView : "today");
+fetchData(false);
+setInterval(() => {
+  if (ui.view !== "today") return;
+  const today = startOfDay(new Date());
+  if (+ui.day !== +today && $("d-today").hidden) ui.day = today;
+  renderToday();
+}, 1000);
+if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});
+</script>
+</body>
+</html>
