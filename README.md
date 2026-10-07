@@ -6,11 +6,11 @@ Everything runs for free on GitHub, with no dependence on Claude or any particul
 
 | Part | What it does |
 |---|---|
-| `index.html` | The whole app (Today, Month, Timetables). |
+| `index.html` | The whole app: Today and Month, plus an Admin page reached from the small **Admin** link at the bottom of the Today screen (or by adding `#admin` to the address). |
 | `data/timetables.json` | All the times, in one small file. |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Offline support and "Add to Home screen" / APK support. |
 | `scripts/update-lpt.mjs` + `.github/workflows/update-start-times.yml` | Every Monday, GitHub fetches the start times from the London Prayer Times API (this month and up to 12 ahead). |
-| `AI-PROMPT.md` | The prompt to give any AI with a timetable JPG or PDF (also on the Timetables tab, with a Copy button). |
+| `AI-PROMPT.md` | The prompt to give any AI with a timetable JPG or PDF (also on the Admin page, with a Copy button). |
 | `serve.ps1` | Optional: preview the site on a Windows PC at http://localhost:8080. |
 
 ---
@@ -38,15 +38,15 @@ So that timetables you paste on your phone go live for everyone:
 1. On GitHub: your photo (top right) → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**.
 2. Name it "Salah Times", set an expiry (up to a year; you'll need to make a new one when it expires), **Repository access → Only select repositories →** `salah-times`.
 3. Under **Permissions → Repository permissions**, set **Contents** to **Read and write**. Generate it and copy the token.
-4. On your phone, open the website → **Timetables → Publishing**. Enter your GitHub user name, the repository name and the token, then tap **Save and test**.
+4. On your phone, open the website → **Admin** (bottom of the Today screen) **→ Publishing**. Enter your GitHub user name, the repository name and the token, then tap **Save and test**.
 
-The token is stored only on that phone. Don't share it. Anyone else who opens the Timetables tab can try things out, but nothing they do reaches the website without a token.
+The token is stored only on that phone. Don't share it. Anyone else who finds the Admin page can try things out, but nothing they do reaches the website without a token.
 
 ---
 
 ## Adding a new month (each month, or whenever a mosque publishes a timetable)
 
-1. Open the website → **Timetables → AI prompt → Copy prompt**.
+1. Open the website → **Admin → AI prompt → Copy prompt**.
 2. Paste it into any AI (ChatGPT, Gemini, Claude…), attach the timetable JPG or PDF, and send.
 3. Copy the AI's answer, paste it into **Add timetables**, tap **Check**. Wrong-looking times are highlighted; fix the AI's answer and Check again if needed.
 4. Tap **Save timetables**. With publishing set up it goes live straight away; other phones pick it up within a few hours, or straight away if they tap **Refresh**.

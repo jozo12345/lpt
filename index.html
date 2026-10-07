@@ -93,6 +93,11 @@ h2 { font-size: 1.2rem; }
 .pick label.on { border-color: var(--brass); color: var(--brass); background: var(--brass-soft); }
 .pick input { accent-color: var(--brass); margin: 0; }
 .fresh { font-size: .78rem; color: var(--muted); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.fresh .grow { flex: 1; }
+.linkbtn.subtle { color: var(--muted); font-weight: 500; }
+.adminbar { display: flex; align-items: center; gap: 12px; }
+.adminbar h1 { font-size: 1.4rem; }
+.wrap:has(#v-data:not([hidden])) { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 
 /* Month */
 .mbar { display: flex; align-items: center; justify-content: center; gap: 10px; }
@@ -184,6 +189,10 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
 
   <!-- TIMETABLES -->
   <section id="v-data" hidden style="display:grid;gap:14px">
+    <div class="adminbar">
+      <button class="iconbtn" data-view="today" aria-label="Back to today">‹</button>
+      <h1>Admin</h1>
+    </div>
     <div class="banner" id="pendingbar" hidden>
       <span id="pendingtext"></span>
       <button class="btn primary" id="pub-now">Publish now</button>
@@ -254,7 +263,6 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
 <nav class="nav" role="tablist" aria-label="Views">
   <button id="tab-today" role="tab" aria-selected="true" data-view="today">Today</button>
   <button id="tab-month" role="tab" aria-selected="false" data-view="month">Month</button>
-  <button id="tab-data" role="tab" aria-selected="false" data-view="data">Timetables</button>
 </nav>
 
 <script>
@@ -507,7 +515,7 @@ function renderPick() {
 }
 function renderFresh(failed) {
   const when = fetchedAt ? ago(fetchedAt) : "never";
-  $("fresh").innerHTML = `<span>${failed ? "Offline. " : ""}Times updated ${when}.</span><button class="linkbtn" id="refresh">Refresh</button>`;
+  $("fresh").innerHTML = `<span>${failed ? "Offline. " : ""}Times updated ${when}.</span><button class="linkbtn" id="refresh">Refresh</button><span class="grow"></span><button class="linkbtn subtle" data-view="data">Admin</button>`;
 }
 function ago(t) {
   const m = Math.round((Date.now() - t) / 60000);
@@ -708,8 +716,12 @@ function say(id, msg, kind) { const el = $(id); el.textContent = msg; el.classNa
 /* ---------- Views & events ---------- */
 function showView(v) {
   ui.view = v;
-  for (const id of ["today", "month", "data"]) { $("v-" + id).hidden = id !== v; $("tab-" + id).setAttribute("aria-selected", id === v); }
+  for (const id of ["today", "month", "data"]) { $("v-" + id).hidden = id !== v; const tab = $("tab-" + id); if (tab) tab.setAttribute("aria-selected", id === v); }
+  // Admin is reached from the link under the Today screen (or #admin), not the tab bar.
+  document.querySelector(".nav").hidden = v === "data";
   try { sessionStorage.setItem("st-view", v); } catch {}
+  const hash = v === "data" ? "#admin" : "";
+  if (location.hash !== hash) history.replaceState(null, "", location.pathname + location.search + hash);
   window.scrollTo(0, 0);
   render();
 }
@@ -792,7 +804,9 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) { ui
 /* ---------- Boot ---------- */
 $("prompt").textContent = PROMPT;
 let startView = "today"; try { startView = sessionStorage.getItem("st-view") || "today"; } catch {}
+if (location.hash === "#admin") startView = "data";
 showView(["today", "month", "data"].includes(startView) ? startView : "today");
+window.addEventListener("hashchange", () => { if (location.hash === "#admin" && ui.view !== "data") showView("data"); });
 fetchData(false);
 setInterval(() => {
   if (ui.view !== "today") return;
