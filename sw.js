@@ -1,7 +1,7 @@
 // Offline support: the app shell is served from cache instantly and refreshed in the background;
 // the timetable file is fetched fresh when online and falls back to the cached copy offline.
 // Bump this whenever index.html changes so phones fetch the new app on their next visit.
-const VERSION = "st-v4";
+const VERSION = "st-v9";
 const SHELL = ["./", "index.html", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "data/timetables.json"];
 
 self.addEventListener("install", e => {
