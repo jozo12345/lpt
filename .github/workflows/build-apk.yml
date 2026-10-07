@@ -1,0 +1,81 @@
+name: Build Android app
+
+# Run by hand from the Actions tab whenever you want a new version of the app.
+# The APK appears on the repository's Releases page as salah-times.apk.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the signing key is set up
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          if [ -z "$KS" ] || [ -z "$KS_PASS" ]; then
+            echo "::error::Add the ANDROID_KEYSTORE and ANDROID_KEYSTORE_PASSWORD secrets first (see README)."
+            exit 1
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+
+      - name: Put the website into an app project
+        run: |
+          mkdir -p build/www
+          cp app/package.json app/capacitor.config.json build/
+          cp -r app/assets build/assets
+          cp index.html manifest.webmanifest build/www/
+          cp -r icons build/www/icons
+          OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          echo "window.APP_CONFIG = { build: ${{ github.run_number }}, owner: \"$OWNER\", repo: \"${{ github.event.repository.name }}\" };" > build/www/app-config.js
+
+      - name: Create the Android project
+        working-directory: build
+        run: |
+          npm install --no-audit --no-fund
+          npx cap add android
+          npx capacitor-assets generate --android --iconBackgroundColor "#1E4A38" --splashBackgroundColor "#F6F1E6"
+          mkdir -p android/app/src/main/res/raw android/app/src/main/res/drawable
+          cp ../app/sounds/*.wav android/app/src/main/res/raw/
+          cp ../app/res/drawable/*.png android/app/src/main/res/drawable/
+          sed -i "s/versionCode 1$/versionCode ${{ github.run_number }}/; s/versionName \"1.0\"/versionName \"1.${{ github.run_number }}\"/" android/app/build.gradle
+          npx cap sync android
+
+      - name: Build the APK
+        working-directory: build/android
+        run: ./gradlew assembleRelease --no-daemon
+
+      - name: Sign the APK
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE }}
+          KS_PASS: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          echo "$KS" | base64 -d > ks.p12
+          BT=$(ls -d "$ANDROID_HOME"/build-tools/* | sort -V | tail -1)
+          "$BT/zipalign" -p -f 4 build/android/app/build/outputs/apk/release/app-release-unsigned.apk aligned.apk
+          "$BT/apksigner" sign --ks ks.p12 --ks-type PKCS12 --ks-pass env:KS_PASS --out salah-times.apk aligned.apk
+          "$BT/apksigner" verify salah-times.apk
+          rm ks.p12
+
+      - name: Publish to Releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ github.run_number }}" salah-times.apk \
+            --title "Salah Times app ${{ github.run_number }}" \
+            --notes "Download salah-times.apk on an Android phone and open it to install or update." \
+            --latest
