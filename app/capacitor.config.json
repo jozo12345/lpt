@@ -1,0 +1,14 @@
+{
+  "appId": "app.salahtimes.london",
+  "appName": "Salah Times",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#F6F1E6"
+  },
+  "plugins": {
+    "LocalNotifications": {
+      "smallIcon": "ic_stat_salah",
+      "iconColor": "#1E4A38"
+    }
+  }
+}

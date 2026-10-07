@@ -1,0 +1,15 @@
+{
+  "name": "salah-times-app",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Android wrapper for the Salah Times website, built by .github/workflows/build-apk.yml",
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/local-notifications": "^6.1.0"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^6.1.2"
+  }
+}

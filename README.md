@@ -12,6 +12,7 @@ Everything runs for free on GitHub, with no dependence on Claude or any particul
 | `scripts/update-lpt.mjs` + `.github/workflows/update-start-times.yml` | Every Monday, GitHub fetches the start times from the London Prayer Times API (this month and up to 12 ahead). |
 | `AI-PROMPT.md` | The prompt to give any AI with a timetable JPG or PDF (also on the Admin page, with a Copy button). |
 | `serve.ps1` | Optional: preview the site on a Windows PC at http://localhost:8080. |
+| `app/`, `app-config.js`, `.github/workflows/build-apk.yml` | The Android app (see below). |
 
 ---
 
@@ -57,14 +58,35 @@ If publishing isn't set up, you can still tap **Publishing → Download data fil
 
 ---
 
-## Turning it into an Android app (APK)
+## The Android app (with reminders)
 
-The site is already an installable web app. On Android, open it in Chrome → menu → **Add to Home screen / Install app**.
+The app is the same site packaged for Android, plus reminders that the phone schedules itself (they work offline and with the app closed). It gets its times from this website, so **new times never need a new app**: start times and pasted jamā'ah times reach the app automatically, and it reschedules the reminders.
 
-For a real APK to share or put on the Play Store:
-1. Go to https://www.pwabuilder.com and enter your website address.
-2. Choose **Package for stores → Android**, then **Download**. You get an APK to install directly (and an AAB for the Play Store).
-3. The app shows the same website, so anything you publish appears in the app too. No rebuild needed.
+| Folder / file | What it is |
+|---|---|
+| `app/` | App settings (`capacitor.config.json`), the four reminder sounds (`sounds/`), app and notification icons. `make-assets.ps1` recreates the sounds and icons. |
+| `.github/workflows/build-apk.yml` | Builds the APK on GitHub when you press **Run workflow**. |
+| `app-config.js` | Empty on the website; the build fills in the app's version and where to fetch times. |
+
+### One-time setup: the signing key
+Android only installs an update if it's signed with the same key as the version already on the phone. The key is in the separate `salah-times-signing` folder next to this one (never upload that folder). In the repository: **Settings → Secrets and variables → Actions → New repository secret**, add:
+- `ANDROID_KEYSTORE`: the whole contents of `ANDROID_KEYSTORE.txt`
+- `ANDROID_KEYSTORE_PASSWORD`: the contents of `ANDROID_KEYSTORE_PASSWORD.txt`
+
+Keep a backup of that folder. If the key is lost, everyone has to uninstall the app and install the new one fresh.
+
+### Making a new version of the app
+1. **Actions → Build Android app → Run workflow.** It takes about 5–10 minutes.
+2. The APK appears under **Releases** as `salah-times.apk`. Its permanent download link is `https://github.com/YOUR-NAME/lpt/releases/latest/download/salah-times.apk`, and the website's Month page shows an **Android app** link to it.
+3. Phones with an older version show "A new version of the app is available" at the top of the home screen; tapping it downloads the update, which installs over the old one and keeps their settings.
+
+Only rebuild when the app's design or features change. Times and timetables never need a rebuild.
+
+### Installing on a phone
+Open the download link on the phone, then open the downloaded file. The first time, Android asks to allow installing apps from your browser or Files app; allow it. Then open the app → **Month → Admin → Reminders → Turn on reminders**, and tap **Allow exact timing** if it appears, so reminders arrive on the minute.
+
+### Reminders
+Each phone chooses, per prayer: when it **starts**, some minutes **before** it starts, some minutes before **jamā'ah** (for the mosques ticked on that phone) and a **last call** before its time runs out (Fajr at sunrise, Dhuhr at 'Asr, 'Asr at Maghrib, Maghrib at 'Ishā, 'Ishā at the next Fajr). Each type has its own sound; last call is a warning beep. **Play test reminders** plays all four. The app sets up to 30 days ahead, and opening it tops them up.
 
 ---
 

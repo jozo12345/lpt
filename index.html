@@ -16,6 +16,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Salah Times">
 <title>Salah Times</title>
+<script src="app-config.js"></script>
 <style>
 /* Layout: one phone-width column — date, a large next-prayer card, the day's board — with a floating tab bar at the bottom.
    Light theme only: warm cream paper, deep masjid green, burnished gold. */
@@ -163,6 +164,11 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
 .daynav .when { flex: 1; min-width: 0; text-align: center; display: grid; gap: 2px; }
 .daynav .todaybtn { font-size: .78rem; }
 .iconbtn.sm { width: 34px; height: 34px; font-size: 1rem; color: var(--muted); }
+.updbar { display: block; padding: 11px 14px; border-radius: 14px; background: var(--gold-soft); border: 1px solid var(--gold); color: var(--ink); font-weight: 700; font-size: .85rem; text-align: center; text-decoration: none; }
+.remgrid th, .remgrid td { padding-inline: 3px; }
+.remgrid th { font-size: .56rem; letter-spacing: .06em; }
+.remgrid th:first-child, .remgrid td:first-child { text-align: left; padding-left: 12px; }
+.remgrid input { width: 20px; height: 20px; accent-color: var(--green); margin: 0; }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .linkbtn.subtle { color: var(--muted); font-weight: 500; }
 .adminbar { display: flex; align-items: center; gap: 12px; }
@@ -182,6 +188,7 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
 
   <!-- TODAY -->
   <section id="v-today" style="display:grid;gap:14px">
+    <a class="updbar" id="updbar" hidden>A new version of the app is available. Tap to download.</a>
     <div class="next" id="next" hidden></div>
     <div class="board" id="board"><div class="empty">Loading times…</div></div>
     <div class="daynav">
@@ -222,6 +229,20 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
       <h2>Home screen</h2>
       <p class="say">Tick the mosques whose jamā‘ah times show on this phone's home screen.</p>
       <fieldset class="pick" id="showpick"></fieldset>
+    </div>
+
+    <div class="panel" id="rempanel" hidden>
+      <h2>Reminders</h2>
+      <p class="say" id="rem-status"></p>
+      <div class="actions" id="rem-perm"></div>
+      <div class="scroll"><table class="sheet remgrid" id="rem-grid"></table></div>
+      <div class="row2">
+        <div class="field"><label for="rem-before">Before start</label><select id="rem-before" data-remmins="beforeMins"></select></div>
+        <div class="field"><label for="rem-jamaah">Before jamā‘ah</label><select id="rem-jamaah" data-remmins="jamaahMins"></select></div>
+        <div class="field"><label for="rem-last">Last call, before it ends</label><select id="rem-last" data-remmins="lastMins"></select></div>
+      </div>
+      <p class="say">Jamā‘ah reminders are for the mosques ticked under Home screen. Each type has its own sound; Last call sounds like a warning.</p>
+      <div class="actions"><button class="btn" id="rem-test">Play test reminders</button></div>
     </div>
 
     <div style="display:grid;gap:10px">
@@ -304,6 +325,16 @@ const ROWS = [
 ];
 const DATA_URL = "data/timetables.json";
 const REFRESH_MS = 3 * 3600 * 1000;
+
+/* The same page runs as the website and inside the Android app. In the app, APP_CONFIG (written by the
+   build job) says which GitHub site to fetch times from and which build this is. */
+const CFG = window.APP_CONFIG || null;
+const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+const LN = NATIVE && window.Capacitor.Plugins ? window.Capacitor.Plugins.LocalNotifications : null;
+const SITE = NATIVE && CFG ? { owner: CFG.owner, repo: CFG.repo }
+  : /\.github\.io$/.test(location.hostname) ? { owner: location.hostname.split(".")[0], repo: location.pathname.split("/")[1] } : null;
+const FETCH_URL = NATIVE && CFG ? `https://${CFG.owner}.github.io/${CFG.repo}/${DATA_URL}` : DATA_URL;
+const APK_URL = SITE && SITE.repo ? `https://github.com/${SITE.owner}/${SITE.repo}/releases/latest/download/salah-times.apk` : null;
 
 const PROMPT = `You are converting a mosque prayer timetable (attached as an image or PDF) into plain text for my prayer-times website.
 
@@ -435,11 +466,11 @@ const shownMosques = () => mosques().filter(m => !hidden.has(m.id));
 async function fetchData(force) {
   if (!force && server && Date.now() - fetchedAt < REFRESH_MS) return;
   try {
-    const r = await fetch(DATA_URL + "?t=" + Date.now(), { cache: "no-store" });
+    const r = await fetch(FETCH_URL + "?t=" + Date.now(), { cache: "no-store" });
     if (!r.ok) throw new Error(r.status);
     server = await r.json(); fetchedAt = Date.now();
     save("st-cache", { data: server, at: fetchedAt });
-    recompute(); render();
+    recompute(); render(); queueSchedule();
   } catch (e) {
     if (!server) { $("board").innerHTML = '<div class="empty">Couldn\'t load the times. Check your connection and try again.<button class="btn" id="retry">Try again</button></div>'; }
     renderFresh(true);
@@ -542,7 +573,9 @@ function renderPick() {
 }
 function renderFresh(failed) {
   const when = fetchedAt ? ago(fetchedAt) : "never";
-  $("fresh").innerHTML = `<span>${failed ? "Offline. " : ""}Times updated ${when}.</span><button class="linkbtn" id="refresh">Refresh</button><span class="grow"></span><button class="linkbtn subtle" data-view="data">Admin</button>`;
+  const appLink = !NATIVE && APK_URL ? `<a class="linkbtn subtle" href="${APK_URL}">Android app</a>` : "";
+  const version = NATIVE && CFG ? `<span>App ${CFG.build}</span>` : "";
+  $("fresh").innerHTML = `<span>${failed ? "Offline. " : ""}Times updated ${when}.</span><button class="linkbtn" id="refresh">Refresh</button><span class="grow"></span>${version}${appLink}<button class="linkbtn subtle" data-view="data">Admin</button>`;
 }
 function ago(t) {
   const m = Math.round((Date.now() - t) / 60000);
@@ -748,7 +781,7 @@ function showView(v) {
   document.querySelector(".nav").hidden = v === "data";
   try { sessionStorage.setItem("st-view", v); } catch {}
   const hash = v === "data" ? "#admin" : "";
-  if (location.hash !== hash) history.replaceState(null, "", location.pathname + location.search + hash);
+  if (location.hash !== hash) { try { history.replaceState(null, "", location.pathname + location.search + hash); } catch {} }
   window.scrollTo(0, 0);
   render();
 }
@@ -756,7 +789,7 @@ function render() {
   renderPick(); renderFresh();
   if (ui.view === "today") renderToday();
   if (ui.view === "month") renderMonth();
-  if (ui.view === "data") { renderData(); renderPreview(); }
+  if (ui.view === "data") { renderData(); renderPreview(); renderRem(); }
 }
 
 document.addEventListener("click", async e => {
@@ -788,6 +821,9 @@ document.addEventListener("click", async e => {
       try { await navigator.clipboard.writeText(PROMPT); t.textContent = "Copied"; setTimeout(() => t.textContent = "Copy prompt", 2000); }
       catch { const sel = getSelection(), rg = document.createRange(); rg.selectNodeContents($("prompt")); sel.removeAllRanges(); sel.addRange(rg); t.textContent = "Selected. Copy it now"; }
       return;
+    case "rem-on": return turnOnReminders();
+    case "rem-exact": try { await LN.changeExactNotificationSetting(); } catch {} return renderRem();
+    case "rem-test": return testReminders(t);
     case "mq-add": {
       const name = $("mq-name").value.trim(), short = $("mq-short").value.trim();
       if (!name || !short) return say("mq-say", "Enter both a name and a column name.", "err");
@@ -816,8 +852,13 @@ document.addEventListener("change", e => {
   const el = e.target;
   if (el.dataset.pick) {
     if (el.checked) hidden.delete(el.dataset.pick); else hidden.add(el.dataset.pick);
-    save("st-hidden", [...hidden]); renderPick(); return renderToday();
+    save("st-hidden", [...hidden]); renderPick(); queueSchedule(); return renderToday();
   }
+  if (el.dataset.rem) {
+    const [type, k] = el.dataset.rem.split(":");
+    rem[type][k] = el.checked; save("st-rem", rem); return queueSchedule();
+  }
+  if (el.dataset.remmins) { rem[el.dataset.remmins] = +el.value; save("st-rem", rem); return queueSchedule(); }
   if (el.dataset.bk && ui.preview) {
     const b = ui.preview[+el.dataset.bk];
     if (el.dataset.f === "include") b.include = el.checked;
@@ -826,7 +867,146 @@ document.addEventListener("change", e => {
     renderPreview();
   }
 });
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { ui.day = $("d-today").hidden ? startOfDay(new Date()) : ui.day; fetchData(false); render(); } });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { ui.day = $("d-today").hidden ? startOfDay(new Date()) : ui.day; fetchData(false); render(); queueSchedule(); checkAppUpdate(); } });
+
+/* ---------- Reminders (Android app only) ----------
+   Scheduled on the phone itself, so they fire with no signal and the app closed. Re-scheduled whenever the
+   times, the ticked mosques or the reminder settings change, and each time the app is opened. */
+const REM_DEFAULT = { start: { fajr: true, sunrise: false, dhuhr: true, asr: true, maghrib: true, isha: true }, before: {}, jamaah: {}, last: {}, beforeMins: 15, jamaahMins: 10, lastMins: 15 };
+const rem = Object.assign(clone(REM_DEFAULT), load("st-rem", {}));
+const REM_COLS = [
+  { type: "start", label: "Starts", keys: START_COLS },
+  { type: "before", label: "Before", keys: START_COLS },
+  { type: "jamaah", label: "Jamā‘ah", keys: JAM_COLS },
+  { type: "last", label: "Last call", keys: ["fajr", "dhuhr", "asr", "maghrib", "isha"] },
+];
+// Android plays a channel's sound, so each reminder type has its own channel.
+const CHANNELS = [
+  { id: "st-start", name: "Prayer has started", description: "When a prayer time begins", sound: "start.wav", importance: 4 },
+  { id: "st-before", name: "Before a prayer starts", description: "Some minutes before a prayer begins", sound: "before.wav", importance: 4 },
+  { id: "st-jamaah", name: "Before jamā‘ah", description: "Some minutes before a mosque's jamā‘ah", sound: "jamaah.wav", importance: 4 },
+  { id: "st-last", name: "Last call", description: "Before a prayer's time runs out", sound: "lastcall.wav", importance: 5 },
+];
+const MINUTES = [5, 10, 15, 20, 25, 30, 45, 60];
+let remState = { note: "" }, schedTimer = null;
+
+async function setupReminders() {
+  if (!LN) return;
+  for (const c of CHANNELS) { try { await LN.createChannel({ ...c, visibility: 1, vibration: true, lights: true, lightColor: "#E3C88E" }); } catch {} }
+  queueSchedule();
+}
+function queueSchedule() { if (!LN) return; clearTimeout(schedTimer); schedTimer = setTimeout(scheduleReminders, 600); }
+
+async function scheduleReminders() {
+  try {
+    const perm = await LN.checkPermissions();
+    if (perm.display !== "granted") { remState = { note: "Reminders are off. Tap Turn on reminders to allow notifications." }; return renderRem(); }
+    const pending = await LN.getPending();
+    if (pending.notifications.length) await LN.cancel({ notifications: pending.notifications.map(n => ({ id: n.id })) });
+
+    const jam = shownMosques();
+    const count = t => Object.values(rem[t]).filter(Boolean).length;
+    const perDay = count("start") + count("before") + count("jamaah") * jam.length + count("last");
+    if (!perDay) { remState = { note: "No reminders are ticked." }; return renderRem(); }
+    // Android allows about 500 scheduled alarms per app, so cover as many days as fit (up to 30).
+    const days = Math.max(2, Math.min(30, Math.floor(400 / perDay)));
+    const list = [], now = Date.now(), today = startOfDay(new Date());
+    let lastDay = null;
+    for (let i = 0; i < days; i++) {
+      const day = new Date(today); day.setDate(day.getDate() + i);
+      const next = new Date(day); next.setDate(next.getDate() + 1);
+      const st = startRow(day); if (!st) continue;
+      const st2 = startRow(next);
+      const fri = day.getDay() === 5;
+      const name = k => fri && k === "dhuhr" ? "Jumu‘ah" : LABEL[k];
+      const at = (t, before, d) => { const m = toMin(t); return m == null ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, m - before, 0); };
+      const add = (when, type, idx, title, body) => {
+        if (!when || when.getTime() < now + 5000) return;
+        const c = CHANNELS[type];
+        list.push({ id: i * 1000 + type * 100 + idx, title, body, channelId: c.id, sound: c.sound, smallIcon: "ic_stat_salah", iconColor: "#1E4A38", schedule: { at: when, allowWhileIdle: true } });
+        lastDay = day;
+      };
+      START_COLS.forEach((k, p) => {
+        const t = st[k]; if (!t) return;
+        if (rem.start[k]) {
+          const jams = jam.map(m => { const r = jamRow(m.id, day); return r && r[k] ? `${m.short} ${fmtPlain(r[k])}` : null; }).filter(Boolean);
+          add(at(t, 0, day), 0, p, k === "sunrise" ? `Sunrise · ${fmtPlain(t)}` : `${name(k)} has started`,
+            k === "sunrise" ? "Fajr time has ended." : `Began ${fmtPlain(t)}${jams.length ? " · Jamā‘ah " + jams.join(", ") : ""}`);
+        }
+        if (rem.before[k]) add(at(t, rem.beforeMins, day), 1, p, `${name(k)} in ${rem.beforeMins} minutes`, `${k === "sunrise" ? "Sunrise" : "Starts"} at ${fmtPlain(t)}`);
+      });
+      JAM_COLS.forEach((k, p) => {
+        if (!rem.jamaah[k]) return;
+        jam.forEach((m, mi) => {
+          const r = jamRow(m.id, day), t = r && r[k];
+          if (t && mi < 9) add(at(t, rem.jamaahMins, day), 2, mi * 10 + p, `${m.short} · ${name(k)} jamā‘ah in ${rem.jamaahMins} minutes`, `${m.name}, ${fmtPlain(t)}`);
+        });
+      });
+      // A prayer's time runs out when the next one starts (Fajr at sunrise, ‘Ishā at the next Fajr).
+      const ENDS = { fajr: ["sunrise", st, day], dhuhr: ["asr", st, day], asr: ["maghrib", st, day], maghrib: ["isha", st, day], isha: ["fajr", st2, next] };
+      ["fajr", "dhuhr", "asr", "maghrib", "isha"].forEach((k, p) => {
+        if (!rem.last[k]) return;
+        const [ek, row, d] = ENDS[k], t = row && row[ek];
+        if (t) add(at(t, rem.lastMins, d), 3, p, `${name(k)} ends in ${rem.lastMins} minutes`, `${LABEL[ek]} at ${fmtPlain(t)}. Pray ${name(k)} now if you haven't yet.`);
+      });
+    }
+    if (list.length) await LN.schedule({ notifications: list });
+    remState = list.length
+      ? { note: `${list.length} reminders set, up to ${lastDay.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" })}. Opening the app tops them up.` }
+      : { note: "No upcoming times on file to remind you about yet." };
+  } catch (e) { remState = { note: "Couldn't set reminders: " + (e && e.message ? e.message : e) }; }
+  renderRem();
+}
+
+async function turnOnReminders() {
+  try {
+    const p = await LN.requestPermissions();
+    if (p.display !== "granted") { remState = { note: "Notifications are blocked. Allow them for Salah Times in the phone's Settings → Apps." }; return renderRem(); }
+  } catch {}
+  queueSchedule(); renderRem();
+}
+
+async function renderRem() {
+  const panel = $("rempanel");
+  panel.hidden = !LN;
+  if (!LN) return;
+  $("rem-status").textContent = remState.note || "";
+  let perm = "granted", exact = "granted";
+  try { perm = (await LN.checkPermissions()).display; } catch {}
+  try { if (LN.checkExactNotificationSetting) exact = (await LN.checkExactNotificationSetting()).exact_alarm; } catch {}
+  $("rem-perm").innerHTML = (perm !== "granted" ? `<button class="btn primary" id="rem-on">Turn on reminders</button>` : "")
+    + (perm === "granted" && exact !== "granted" ? `<button class="btn" id="rem-exact">Allow exact timing</button><span class="say">Without this, Android may deliver reminders a few minutes late.</span>` : "");
+  const rows = START_COLS.map(k => `<tr><td>${LABEL[k]}</td>${REM_COLS.map(c => c.keys.includes(k)
+    ? `<td><input type="checkbox" id="rem-${c.type}-${k}" data-rem="${c.type}:${k}" ${rem[c.type][k] ? "checked" : ""} aria-label="${c.label}: ${LABEL[k]}"></td>` : "<td></td>").join("")}</tr>`).join("");
+  $("rem-grid").innerHTML = `<thead><tr><th>Prayer</th>${REM_COLS.map(c => `<th>${c.label}</th>`).join("")}</tr></thead><tbody>${rows}</tbody>`;
+  for (const [id, key] of [["rem-before", "beforeMins"], ["rem-jamaah", "jamaahMins"], ["rem-last", "lastMins"]]) {
+    $(id).innerHTML = MINUTES.map(m => `<option value="${m}" ${rem[key] === m ? "selected" : ""}>${m} minutes</option>`).join("");
+  }
+}
+
+// One of each reminder, a few seconds apart, so each sound can be heard.
+async function testReminders(btn) {
+  try {
+    const p = await LN.requestPermissions(); if (p.display !== "granted") return turnOnReminders();
+    const base = Date.now();
+    const samples = [["Maghrib has started", "Example: prayer start sound"], ["Fajr in 15 minutes", "Example: before-start sound"], ["MUS · ‘Ishā jamā‘ah in 10 minutes", "Example: jamā‘ah sound"], ["‘Asr ends in 15 minutes", "Example: last-call warning sound"]];
+    await LN.schedule({ notifications: samples.map(([title, body], i) => ({ id: 990001 + i, title, body, channelId: CHANNELS[i].id, sound: CHANNELS[i].sound, smallIcon: "ic_stat_salah", iconColor: "#1E4A38", schedule: { at: new Date(base + 4000 + i * 6000), allowWhileIdle: true } })) });
+    btn.textContent = "Playing over the next 25 seconds…"; setTimeout(() => btn.textContent = "Play test reminders", 26000);
+  } catch (e) { remState = { note: "Couldn't play the test: " + (e && e.message ? e.message : e) }; renderRem(); }
+}
+
+/* ---------- App updates (Android app only) ---------- */
+async function checkAppUpdate() {
+  if (!NATIVE || !CFG) return;
+  try {
+    const r = await fetch(`https://api.github.com/repos/${CFG.owner}/${CFG.repo}/releases/latest`, { cache: "no-store" });
+    if (!r.ok) return;
+    const latest = +(String((await r.json()).tag_name || "").replace(/\D/g, "")) || 0;
+    const bar = $("updbar");
+    bar.hidden = !(latest > CFG.build);
+    bar.href = APK_URL;
+  } catch {}
+}
 
 /* ---------- Boot ---------- */
 $("prompt").textContent = PROMPT;
@@ -841,7 +1021,8 @@ setInterval(() => {
   if (+ui.day !== +today && $("d-today").hidden) ui.day = today;
   renderToday();
 }, 1000);
-if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});
+if (!NATIVE && "serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});
+if (NATIVE) { setupReminders(); checkAppUpdate(); }
 </script>
 </body>
 </html>
