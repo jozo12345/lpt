@@ -1,0 +1,29 @@
+name: Update start times
+
+on:
+  schedule:
+    - cron: "17 3 * * 1"   # every Monday at 03:17 UTC
+  workflow_dispatch:        # lets you run it by hand from the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node scripts/update-lpt.mjs
+        env:
+          LPT_KEY: ${{ secrets.LPT_KEY }}
+      - name: Commit if anything changed
+        run: |
+          if git diff --quiet; then echo "No changes"; exit 0; fi
+          git config user.name "salah-times-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/timetables.json
+          git commit -m "Update start times from London Prayer Times"
+          git push
