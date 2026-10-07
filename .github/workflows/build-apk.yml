@@ -12,7 +12,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Check the signing key is set up
         env:
@@ -24,14 +24,20 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
-          node-version: 20
-      - uses: actions/setup-java@v4
+          node-version: 22
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
-      - uses: android-actions/setup-android@v3
+
+      # GitHub's Ubuntu machines come with the Android SDK already installed.
+      - name: Check the Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          test -d "$ANDROID_HOME/build-tools" || { echo "::error::Android SDK not found on this machine."; exit 1; }
+          ls "$ANDROID_HOME/build-tools" | tail -3
 
       - name: Put the website into an app project
         run: |
