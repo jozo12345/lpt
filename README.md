@@ -6,7 +6,7 @@ Everything runs for free on GitHub, with no dependence on Claude or any particul
 
 | Part | What it does |
 |---|---|
-| `index.html` | The whole app: Today and Month, plus an Admin page reached from the small **Admin** link at the bottom of the Today screen (or by adding `#admin` to the address). |
+| `index.html` | The whole app: Today and Month, plus an Admin page reached from the small **Admin** link at the bottom of the Month page (or by adding `#admin` to the address). |
 | `data/timetables.json` | All the times, in one small file. |
 | `sw.js`, `manifest.webmanifest`, `icons/` | Offline support and "Add to Home screen" / APK support. |
 | `scripts/update-lpt.mjs` + `.github/workflows/update-start-times.yml` | Every Monday, GitHub fetches the start times from the London Prayer Times API (this month and up to 12 ahead). |
@@ -38,7 +38,7 @@ So that timetables you paste on your phone go live for everyone:
 1. On GitHub: your photo (top right) → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**.
 2. Name it "Salah Times", set an expiry (up to a year; you'll need to make a new one when it expires), **Repository access → Only select repositories →** `salah-times`.
 3. Under **Permissions → Repository permissions**, set **Contents** to **Read and write**. Generate it and copy the token.
-4. On your phone, open the website → **Admin** (bottom of the Today screen) **→ Publishing**. Enter your GitHub user name, the repository name and the token, then tap **Save and test**.
+4. On your phone, open the website → **Month** → **Admin** (small link at the bottom) **→ Publishing**. Enter your GitHub user name, the repository name and the token, then tap **Save and test**.
 
 The token is stored only on that phone. Don't share it. Anyone else who finds the Admin page can try things out, but nothing they do reaches the website without a token.
 
@@ -51,7 +51,7 @@ The token is stored only on that phone. Don't share it. Anyone else who finds th
 3. Copy the AI's answer, paste it into **Add timetables**, tap **Check**. Wrong-looking times are highlighted; fix the AI's answer and Check again if needed.
 4. Tap **Save timetables**. With publishing set up it goes live straight away; other phones pick it up within a few hours, or straight away if they tap **Refresh**.
 
-You don't need to do this for start times; they arrive automatically every Monday. A timetable for a mosque that isn't on the list yet adds that mosque automatically (you choose its short column name). Each phone can tick or untick which mosques appear on its Today screen.
+You don't need to do this for start times; they arrive automatically every Monday. A timetable for a mosque that isn't on the list yet adds that mosque automatically (you choose its short column name). Each phone can tick or untick which mosques appear on its home screen, under **Admin → Home screen**.
 
 If publishing isn't set up, you can still tap **Publishing → Download data file** and upload that file to the `data` folder on GitHub (**Add file → Upload files**, replacing `timetables.json`).
 

@@ -54,14 +54,12 @@ h2 { font-size: 1.35rem; }
 .eyebrow { font-size: .68rem; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; color: var(--gold); }
 
 /* Floating tab bar */
-.nav { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 10; display: flex; gap: 4px; padding: 5px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; box-shadow: 0 8px 24px -10px rgba(31, 26, 18, .35); }
-.nav button { min-width: 112px; border: 0; background: none; border-radius: 999px; padding: 10px 18px; font-weight: 700; font-size: .9rem; color: var(--muted); }
-.nav button[aria-selected="true"] { background: var(--green); color: var(--on-green); }
+/* Low-key view switch */
+.nav { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(14px + env(safe-area-inset-bottom)); z-index: 10; display: flex; gap: 2px; padding: 3px; background: rgba(255, 253, 248, .82); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); border: 1px solid var(--line); border-radius: 999px; }
+.nav button { border: 0; background: none; border-radius: 999px; padding: 6px 16px; font-weight: 600; font-size: .78rem; letter-spacing: .02em; color: var(--muted); }
+.nav button[aria-selected="true"] { background: var(--green-soft); color: var(--green); }
 
 /* Date */
-.daybar { display: flex; align-items: center; gap: 10px; }
-.daybar .when { flex: 1; min-width: 0; text-align: center; display: grid; gap: 2px; }
-.gdate { font-family: var(--font-display); font-size: 1.9rem; line-height: 1.1; white-space: nowrap; }
 .iconbtn { width: 42px; height: 42px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font-size: 1.2rem; display: grid; place-items: center; flex: none; }
 .todaybtn { border: 0; background: none; color: var(--green); font-weight: 700; font-size: .82rem; text-decoration: underline; text-underline-offset: 3px; padding: 2px; justify-self: center; }
 
@@ -161,6 +159,11 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
 .foot { font-size: .78rem; color: var(--muted); display: grid; gap: 4px; }
 .foot a { color: var(--green); }
 .fresh .grow { flex: 1; }
+.daynav { display: flex; align-items: center; gap: 10px; }
+.daynav .when { flex: 1; min-width: 0; text-align: center; display: grid; gap: 2px; }
+.daynav .todaybtn { font-size: .78rem; }
+.iconbtn.sm { width: 34px; height: 34px; font-size: 1rem; color: var(--muted); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .linkbtn.subtle { color: var(--muted); font-weight: 500; }
 .adminbar { display: flex; align-items: center; gap: 12px; }
 .adminbar h1 { font-size: 1.8rem; }
@@ -179,20 +182,17 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
 
   <!-- TODAY -->
   <section id="v-today" style="display:grid;gap:14px">
-    <div class="daybar">
-      <button class="iconbtn" id="d-prev" aria-label="Previous day">‹</button>
-      <div class="when">
-        <div class="eyebrow" id="gday">&nbsp;</div>
-        <div class="gdate" id="gdate">&nbsp;</div>
-        <button class="todaybtn" id="d-today" hidden>Back to today</button>
-      </div>
-      <button class="iconbtn" id="d-next" aria-label="Next day">›</button>
-    </div>
     <div class="next" id="next" hidden></div>
     <div class="board" id="board"><div class="empty">Loading times…</div></div>
+    <div class="daynav">
+      <button class="iconbtn sm" id="d-prev" aria-label="Previous day">‹</button>
+      <div class="when">
+        <span class="eyebrow" id="gday">&nbsp;</span>
+        <button class="todaybtn" id="d-today" hidden>Back to today</button>
+      </div>
+      <button class="iconbtn sm" id="d-next" aria-label="Next day">›</button>
+    </div>
     <ul class="notes" id="daynotes"></ul>
-    <fieldset class="pick" id="showpick"></fieldset>
-    <div class="fresh" id="fresh"></div>
   </section>
 
   <!-- MONTH -->
@@ -204,6 +204,7 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
     </div>
     <div id="msheet"></div>
     <p class="say">Start times from London Prayer Times (East London Mosque timetable).</p>
+    <div class="fresh" id="fresh"></div>
   </section>
 
   <!-- TIMETABLES -->
@@ -215,6 +216,12 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
     <div class="banner" id="pendingbar" hidden>
       <span id="pendingtext"></span>
       <button class="btn primary" id="pub-now">Publish now</button>
+    </div>
+
+    <div class="panel">
+      <h2>Home screen</h2>
+      <p class="say">Tick the mosques whose jamā‘ah times show on this phone's home screen.</p>
+      <fieldset class="pick" id="showpick"></fieldset>
     </div>
 
     <div style="display:grid;gap:10px">
@@ -446,8 +453,8 @@ const ui = { view: "today", day: startOfDay(new Date()), mKey: mkey(new Date()),
 function renderToday() {
   const d = ui.day;
   const isToday = +d === +startOfDay(new Date());
-  $("gday").textContent = isToday ? "Today · " + d.toLocaleDateString("en-GB", { weekday: "long" }) : d.toLocaleDateString("en-GB", { weekday: "long" });
-  $("gdate").textContent = d.toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+  const full = d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+  $("gday").textContent = isToday ? "Today · " + full : full;
   $("d-today").hidden = isToday;
   if (!server && !pending.length) return;
   const st = startRow(d);
@@ -530,7 +537,7 @@ function nextJamaah(id, nowSec) {
 
 function renderPick() {
   const list = mosques();
-  $("showpick").innerHTML = list.length ? `<legend>Show jamā‘ah</legend>` + list.map(m =>
+  $("showpick").innerHTML = list.length ? `<legend class="sr">Show jamā‘ah</legend>` + list.map(m =>
     `<label class="${hidden.has(m.id) ? "" : "on"}" title="${esc(m.name)}"><input type="checkbox" id="pick-${esc(m.id)}" data-pick="${esc(m.id)}" ${hidden.has(m.id) ? "" : "checked"}>${esc(m.short)}</label>`).join("") : "";
 }
 function renderFresh(failed) {
