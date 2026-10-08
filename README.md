@@ -86,7 +86,7 @@ Only rebuild when the app's design or features change. Times and timetables neve
 Open the download link on the phone, then open the downloaded file. The first time, Android asks to allow installing apps from your browser or Files app; allow it. Then open the app → **Month → Admin → Reminders → Turn on reminders**, and tap **Allow exact timing** if it appears, so reminders arrive on the minute.
 
 ### Reminders
-Each phone chooses, per prayer: when it **starts**, some minutes **before** it starts, some minutes before **jamā'ah** (for the mosques ticked on that phone) and a **last call** before its time runs out (Fajr at sunrise, Dhuhr at 'Asr, 'Asr at Maghrib, Maghrib at 'Ishā, 'Ishā at the next Fajr). Each type has its own sound; last call is a warning beep. **Play test reminders** plays all four. The app sets up to 30 days ahead, and opening it tops them up.
+Each phone chooses, per prayer: when it **starts**, some minutes before **jamā'ah** (for the mosques ticked on that phone) and a **last call** before its time runs out (Fajr at sunrise, Dhuhr at 'Asr, 'Asr at Maghrib, Maghrib at 'Ishā, 'Ishā at the next Fajr). There are also **daily** reminders: Ḍuḥā (11am), Witr (11pm), morning adhkār (8am), evening adhkār (30 min after 'Asr starts) and the children's protection du'ā (9am and 9pm). Each type has its own sound; last call is a warning beep. **Play test reminders** plays one of each. The app sets up to 30 days ahead, and opening it tops them up.
 
 ---
 

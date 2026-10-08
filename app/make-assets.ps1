@@ -1,78 +1,62 @@
-# Creates the app's reminder sounds (original tones, no third-party audio) and Android icons.
-# Run once: powershell -ExecutionPolicy Bypass -File app\make-assets.ps1
+# Creates the app's four reminder sounds: original, non-musical (no bells, chimes, instruments or tunes).
+# Chosen 2026-10-08 from the selection in salah-times-design\sounds.html.
+# Run: powershell -ExecutionPolicy Bypass -File app\make-assets.ps1   (icons: see make-brand.ps1)
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
-New-Item -ItemType Directory -Force "$root\sounds", "$root\res\drawable", "$root\assets" | Out-Null
-
-# ---------- Sounds: 22.05 kHz, 16-bit mono WAV ----------
+New-Item -ItemType Directory -Force "$root\sounds" | Out-Null
 $rate = 22050
+
 function Write-Wav($path, [double[]]$samples) {
-  $ms = New-Object IO.MemoryStream; $w = New-Object IO.BinaryWriter $ms
-  $data = $samples.Length * 2
+  # Bring every sound to the same peak volume (90%) so none is too quiet as a notification.
+  $peak = 0.0; foreach ($s in $samples) { $a = [Math]::Abs($s); if ($a -gt $peak) { $peak = $a } }
+  $gain = if ($peak -gt 0) { 0.9 / $peak } else { 1.0 }
+  $ms = New-Object IO.MemoryStream; $w = New-Object IO.BinaryWriter $ms; $data = $samples.Length * 2
   $w.Write([Text.Encoding]::ASCII.GetBytes("RIFF")); $w.Write([int](36 + $data)); $w.Write([Text.Encoding]::ASCII.GetBytes("WAVEfmt "))
   $w.Write([int]16); $w.Write([int16]1); $w.Write([int16]1); $w.Write([int]$rate); $w.Write([int]($rate * 2)); $w.Write([int16]2); $w.Write([int16]16)
   $w.Write([Text.Encoding]::ASCII.GetBytes("data")); $w.Write([int]$data)
-  foreach ($s in $samples) { $v = [Math]::Max(-1, [Math]::Min(1, $s)); $w.Write([int16]($v * 30000)) }
+  # 1.0 not 1: with whole-number limits PowerShell picks the integer version of Min/Max and rounds every sample to 0.
+  foreach ($s in $samples) { $v = [Math]::Max(-1.0, [Math]::Min(1.0, $s * $gain)); $w.Write([int16]($v * 32000)) }
   [IO.File]::WriteAllBytes($path, $ms.ToArray())
 }
-# A soft bell: fundamental plus quieter overtones, quick attack, exponential decay.
-function Bell([double]$freq, [double]$dur, [double]$decay = 4.0, [double]$vol = 0.6) {
-  $n = [int]($rate * $dur); $out = New-Object double[] $n
-  for ($i = 0; $i -lt $n; $i++) {
-    $t = $i / $rate
-    $env = [Math]::Min(1, $t / 0.008) * [Math]::Exp(-$decay * $t)
-    $out[$i] = $vol * $env * ([Math]::Sin(2 * [Math]::PI * $freq * $t) + 0.35 * [Math]::Sin(4 * [Math]::PI * $freq * $t) + 0.12 * [Math]::Sin(6 * [Math]::PI * $freq * $t)) / 1.47
-  }
-  return ,$out
-}
-# A harsher warning beep: square-ish tone with a flat envelope.
-function Beep([double]$freq, [double]$dur, [double]$vol = 0.5) {
-  $n = [int]($rate * $dur); $out = New-Object double[] $n
-  for ($i = 0; $i -lt $n; $i++) {
-    $t = $i / $rate; $edge = [Math]::Min(1, [Math]::Min($t, $dur - $t) / 0.006)
-    $s = [Math]::Sin(2 * [Math]::PI * $freq * $t); $out[$i] = $vol * $edge * [Math]::Sign($s) * [Math]::Pow([Math]::Abs($s), 0.35)
-  }
-  return ,$out
-}
-function Silence([double]$dur) { return ,(New-Object double[] ([int]($rate * $dur))) }
-# Overlap-add notes that start at given times.
+# Place sounds at start times: list of @(time, samples). For a single sound write @(, @(0, ...)) so the list isn't flattened.
 function Mix($parts, [double]$total) {
-  $out = New-Object double[] ([int]($rate * $total))
-  foreach ($p in $parts) { $start = [int]($rate * $p[0]); $s = $p[1]; for ($i = 0; $i -lt $s.Length -and $start + $i -lt $out.Length; $i++) { $out[$start + $i] += $s[$i] } }
-  return ,$out
+  $o = New-Object double[] ([int]($rate * $total))
+  foreach ($p in $parts) { $st = [int]($rate * $p[0]); $s = $p[1]; for ($i = 0; $i -lt $s.Length -and $st + $i -lt $o.Length; $i++) { $o[$st + $i] += $s[$i] } }
+  return ,$o
+}
+# Water drop: a short tone whose pitch rises quickly, with a fast fade.
+function Drop([double]$f0, [double]$f1, [double]$dur = 0.16) {
+  $n = [int]($rate * $dur); $o = New-Object double[] $n; $ph = 0.0
+  for ($i = 0; $i -lt $n; $i++) { $t = $i / $rate; $f = $f0 + ($f1 - $f0) * [Math]::Min(1.0, $t / 0.05); $ph += 2 * [Math]::PI * $f / $rate
+    $o[$i] = [Math]::Min(1.0, $t / 0.002) * [Math]::Exp(-28 * $t) * [Math]::Sin($ph) }
+  return ,$o
+}
+# A plain tone that fades in and out (no melody).
+function Swell([double]$f, [double]$dur) {
+  $n = [int]($rate * $dur); $o = New-Object double[] $n
+  for ($i = 0; $i -lt $n; $i++) { $t = $i / $rate; $e = [Math]::Sin([Math]::PI * $t / $dur); $o[$i] = $e * $e * ([Math]::Sin(2 * [Math]::PI * $f * $t) + 0.15 * [Math]::Sin(4 * [Math]::PI * $f * $t)) }
+  return ,$o
+}
+# Single-pitch beep with a slightly firm edge.
+function Beep([double]$f, [double]$dur) {
+  $n = [int]($rate * $dur); $o = New-Object double[] $n
+  for ($i = 0; $i -lt $n; $i++) { $t = $i / $rate; $e = [Math]::Min(1.0, [Math]::Min($t, $dur - $t) / 0.004); $s = [Math]::Sin(2 * [Math]::PI * $f * $t)
+    $o[$i] = $e * [Math]::Sign($s) * [Math]::Pow([Math]::Abs($s), 0.5) }
+  return ,$o
 }
 
-# Prayer start: two calm descending bells (E5 then A4).
-Write-Wav "$root\sounds\start.wav" (Mix @(@(0, (Bell 659.3 1.4 3.2)), @(0.45, (Bell 440 1.6 2.8))) 2.1)
-# Before start: one soft high bell.
-Write-Wav "$root\sounds\before.wav" (Mix @(@(0, (Bell 1046.5 1.2 4.5 0.5))) 1.2)
-# Before jamaah: three rising bells (C5 E5 G5), "gather".
-Write-Wav "$root\sounds\jamaah.wav" (Mix @(@(0, (Bell 523.3 1.0 4)), @(0.28, (Bell 659.3 1.0 4)), @(0.56, (Bell 784 1.5 3))) 2.1)
-# Last call: urgent alternating beeps, twice.
-$beeps = @(); $t = 0
-foreach ($k in 1..2) { foreach ($f in 988, 740, 988, 740) { $beeps += ,@($t, (Beep $f 0.14)); $t += 0.19 }; $t += 0.25 }
-Write-Wav "$root\sounds\lastcall.wav" (Mix $beeps ($t + 0.1))
+# Prayer has started: three water drops in quick succession.
+Write-Wav "$root\sounds\start.wav" (Mix @(@(0, (Drop 560 1420)), @(0.17, (Drop 530 1340)), @(0.34, (Drop 500 1260))) 0.62)
+# Before jamā'ah: soft pulse, twice.
+Write-Wav "$root\sounds\jamaah.wav" (Mix @(@(0, (Swell 520 0.45)), @(0.55, (Swell 520 0.45))) 1.05)
+# Last call: double beeps, three times, all on one pitch.
+$b = @(); $t = 0.0; foreach ($k in 1..3) { $b += , @($t, (Beep 1000 0.1)); $t += 0.15; $b += , @($t, (Beep 1000 0.1)); $t += 0.35 }
+Write-Wav "$root\sounds\lastcall.wav" (Mix $b $t)
+# Daily reminders: soft swell, 1.05 s.
+Write-Wav "$root\sounds\daily.wav" (Mix @(, @(0, (Swell 440 1.05))) 1.05)
 
-# ---------- Icons ----------
-Add-Type -AssemblyName System.Drawing
-$green = [Drawing.Color]::FromArgb(255, 30, 74, 56); $gold = [Drawing.Color]::FromArgb(255, 227, 200, 142)
-function Star($g, $size, $scale, $color, $width) {
-  $c = $size / 2; $h = $size * $scale
-  $pen = New-Object Drawing.Pen $color, ([float]($size * $width)); $pen.LineJoin = 'Miter'
-  foreach ($ang in 0, 45) {
-    $pts = @(); foreach ($k in 0..3) { $a = ($ang + 45 + 90 * $k) * [Math]::PI / 180; $pts += New-Object Drawing.PointF ([float]($c + $h * 1.414 * [Math]::Cos($a))), ([float]($c + $h * 1.414 * [Math]::Sin($a))) }
-    $g.DrawPolygon($pen, [Drawing.PointF[]]$pts)
-  }
-  $cr = $size * 0.075; $g.DrawEllipse($pen, [float]($c - $cr), [float]($c - $cr), [float]($cr * 2), [float]($cr * 2))
+Get-ChildItem "$root\sounds\*.wav" | ForEach-Object {
+  $bytes = [IO.File]::ReadAllBytes($_.FullName); $n = [int](($bytes.Length - 44) / 2); $loud = 0
+  for ($i = 0; $i -lt $n; $i += 2) { if ([Math]::Abs([BitConverter]::ToInt16($bytes, 44 + 2 * $i)) -gt 1500) { $loud++ } }
+  "{0,-13} {1:N2}s, audible ~{2:N2}s" -f $_.Name, ($n / $rate), (2 * $loud / $rate)
 }
-function NewImg($size, [scriptblock]$draw, $path) {
-  $bmp = New-Object Drawing.Bitmap $size, $size; $g = [Drawing.Graphics]::FromImage($bmp); $g.SmoothingMode = 'AntiAlias'; $g.Clear([Drawing.Color]::Transparent)
-  & $draw $g $size; $bmp.Save($path, [Drawing.Imaging.ImageFormat]::Png); $g.Dispose(); $bmp.Dispose()
-}
-# Adaptive launcher icon pieces (capacitor-assets): full icon, foreground star, plain background.
-NewImg 1024 { param($g, $s) $g.Clear($green); Star $g $s 0.24 $gold 0.04 } "$root\assets\icon-only.png"
-NewImg 1024 { param($g, $s) Star $g $s 0.20 $gold 0.035 } "$root\assets\icon-foreground.png"
-NewImg 1024 { param($g, $s) $g.Clear($green) } "$root\assets\icon-background.png"
-# Notification status-bar icon: white on transparent, as Android requires.
-NewImg 96 { param($g, $s) Star $g $s 0.30 ([Drawing.Color]::White) 0.08 } "$root\res\drawable\ic_stat_salah.png"
-Get-ChildItem -Recurse "$root\sounds", "$root\assets", "$root\res" -File | Select-Object @{n = "File"; e = { $_.FullName.Substring($root.Length + 1) } }, Length

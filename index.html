@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Outfit, chosen on 2026-10-07. Falls back to the phone's own sans-serif when offline. -->
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300..800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@300..800&family=Markazi+Text:wght@400..700&display=swap">
 <meta name="description" content="Daily prayer start times from London Prayer Times with jamā‘ah times from local mosques.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png" type="image/png">
@@ -67,7 +67,8 @@ h2 { font-size: 1.35rem; }
 /* The large next-prayer card */
 .next { position: relative; overflow: hidden; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 4px 14px; background: radial-gradient(120% 140% at 100% 0%, #2A5C47 0%, var(--green) 45%, var(--green-deep) 100%); color: var(--on-green); border-radius: 24px; padding: 24px 22px 20px; box-shadow: 0 18px 36px -18px rgba(22, 58, 44, .7); min-height: 210px; }
 .next::before { content: ""; position: absolute; z-index: -1; width: 230px; height: 230px; right: -105px; top: -105px; opacity: .13;
-  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none' stroke='%23E3C88E' stroke-width='1.6'%3E%3Crect x='22' y='22' width='56' height='56'/%3E%3Crect x='22' y='22' width='56' height='56' transform='rotate(45 50 50)'/%3E%3Ccircle cx='50' cy='50' r='16'/%3E%3Ccircle cx='50' cy='50' r='44'/%3E%3C/svg%3E") center / contain no-repeat; }
+  /* The star from the centre of the logo: a solid eight-point star with an eight-point star cut out. */
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cmask id='m'%3E%3Crect width='100' height='100' fill='white'/%3E%3Cg fill='black'%3E%3Crect x='37' y='37' width='26' height='26' rx='1'/%3E%3Crect x='37' y='37' width='26' height='26' rx='1' transform='rotate(45 50 50)'/%3E%3C/g%3E%3C/mask%3E%3Cg fill='%23E3C88E' mask='url(%23m)'%3E%3Crect x='22' y='22' width='56' height='56' rx='3'/%3E%3Crect x='22' y='22' width='56' height='56' rx='3' transform='rotate(45 50 50)'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat; }
 .next .lbl { font-size: .7rem; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; color: var(--gold-light); grid-column: 1 / -1; }
 .next .nm { font-family: var(--font-display); font-size: clamp(2rem, 10.5vw, 3.1rem); line-height: 1; overflow-wrap: anywhere; letter-spacing: -.01em; margin-top: 6px; }
 .next .sub { font-size: .95rem; opacity: .85; margin-top: 6px; }
@@ -160,15 +161,44 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
 .foot { font-size: .78rem; color: var(--muted); display: grid; gap: 4px; }
 .foot a { color: var(--green); }
 .fresh .grow { flex: 1; }
-.daynav { display: flex; align-items: center; gap: 10px; }
-.daynav .when { flex: 1; min-width: 0; text-align: center; display: grid; gap: 2px; }
-.daynav .todaybtn { font-size: .78rem; }
-.iconbtn.sm { width: 34px; height: 34px; font-size: 1rem; color: var(--muted); }
+.daynav { display: grid; justify-items: center; gap: 4px; text-align: center; }
+.daynav .todaybtn { font-size: .8rem; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 14px; text-decoration: none; }
+.hint { font-size: .74rem; color: var(--muted); }
+/* Swiping the day's times: the table follows the finger, then the new day slides in. */
+.board { touch-action: pan-y; -webkit-user-select: none; user-select: none; transition: transform .22s ease, opacity .22s ease; overflow: hidden; }
+.board.compact .brow > * { padding-inline: 4px; }
+.board.compact .pname { font-size: 1.05rem; padding-left: 12px !important; }
+.board.compact .t { font-size: 1.05rem; }
+.board.tight .t { font-size: .95rem; letter-spacing: -.01em; }
+.board.tight .pname { font-size: .95rem; }
+.board.tight .ap { font-size: .55em; margin-left: 1px; }
+.board.tight .brow.head { font-size: .56rem; letter-spacing: .06em; }
+.board.in-right { animation: in-right .26s ease; }
+.board.in-left { animation: in-left .26s ease; }
+@keyframes in-right { from { transform: translateX(48px); opacity: 0; } }
+@keyframes in-left { from { transform: translateX(-48px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .board.in-right, .board.in-left { animation: none; } .board { transition: none; } }
 .updbar { display: block; padding: 11px 14px; border-radius: 14px; background: var(--gold-soft); border: 1px solid var(--gold); color: var(--ink); font-weight: 700; font-size: .85rem; text-align: center; text-decoration: none; }
 .remgrid th, .remgrid td { padding-inline: 3px; }
 .remgrid th { font-size: .56rem; letter-spacing: .06em; }
 .remgrid th:first-child, .remgrid td:first-child { text-align: left; padding-left: 12px; }
+.remgrid.daily td { white-space: normal; }
+.remgrid.daily td.when { color: var(--muted); font-size: .8rem; text-align: left; }
 .remgrid input { width: 20px; height: 20px; accent-color: var(--green); margin: 0; }
+/* Opening du‘ā */
+.dua { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; padding: 24px 18px; background: rgba(246, 241, 230, .9); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px); animation: dua-in .35s ease; cursor: pointer; }
+.dua.out { animation: dua-out .25s ease forwards; }
+@keyframes dua-in { from { opacity: 0; } }
+@keyframes dua-out { to { opacity: 0; } }
+.dua-card { max-width: 30rem; width: 100%; display: grid; gap: 16px; justify-items: center; text-align: center; padding: 28px 22px; border-radius: 24px; color: var(--on-green);
+  background: radial-gradient(120% 140% at 100% 0%, #2A5C47 0%, var(--green) 45%, var(--green-deep) 100%); box-shadow: 0 24px 48px -20px rgba(22, 58, 44, .7); }
+.dua-card .eyebrow { color: var(--gold-light); }
+.dua-ar { margin: 0; font-family: "Markazi Text", "Traditional Arabic", "Noto Naskh Arabic", serif; font-size: clamp(1.75rem, 7.6vw, 2.35rem); line-height: 1.55; }
+.dua-en { margin: 0; font-size: 1rem; line-height: 1.55; opacity: .92; }
+.dua-ref { margin: 0; font-size: .74rem; letter-spacing: .08em; text-transform: uppercase; color: var(--gold-light); }
+.dua-ref:empty, .dua-en:empty { display: none; }
+.dua .hint { color: rgba(250, 246, 236, .6); }
+@media (prefers-reduced-motion: reduce) { .dua, .dua.out { animation: none; } }
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .linkbtn.subtle { color: var(--muted); font-weight: 500; }
 .adminbar { display: flex; align-items: center; gap: 12px; }
@@ -192,12 +222,9 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
     <div class="next" id="next" hidden></div>
     <div class="board" id="board"><div class="empty">Loading times…</div></div>
     <div class="daynav">
-      <button class="iconbtn sm" id="d-prev" aria-label="Previous day">‹</button>
-      <div class="when">
-        <span class="eyebrow" id="gday">&nbsp;</span>
-        <button class="todaybtn" id="d-today" hidden>Back to today</button>
-      </div>
-      <button class="iconbtn sm" id="d-next" aria-label="Next day">›</button>
+      <span class="eyebrow" id="gday">&nbsp;</span>
+      <button class="todaybtn" id="d-today" hidden>Today</button>
+      <span class="hint" id="swipehint">Swipe the times left or right to see other days</span>
     </div>
     <ul class="notes" id="daynotes"></ul>
   </section>
@@ -236,8 +263,8 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
       <p class="say" id="rem-status"></p>
       <div class="actions" id="rem-perm"></div>
       <div class="scroll"><table class="sheet remgrid" id="rem-grid"></table></div>
+      <div class="scroll"><table class="sheet remgrid daily" id="rem-daily"></table></div>
       <div class="row2">
-        <div class="field"><label for="rem-before">Before start</label><select id="rem-before" data-remmins="beforeMins"></select></div>
         <div class="field"><label for="rem-jamaah">Before jamā‘ah</label><select id="rem-jamaah" data-remmins="jamaahMins"></select></div>
         <div class="field"><label for="rem-last">Last call, before it ends</label><select id="rem-last" data-remmins="lastMins"></select></div>
       </div>
@@ -305,6 +332,16 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
       <span>Confirm with the mosque if in doubt.</span>
     </div>
   </section>
+</div>
+
+<div class="dua" id="dua" hidden role="dialog" aria-modal="true" aria-label="Du‘ā">
+  <div class="dua-card">
+    <span class="eyebrow" id="dua-kind">Du‘ā</span>
+    <p class="dua-ar" id="dua-ar" lang="ar" dir="rtl"></p>
+    <p class="dua-en" id="dua-en"></p>
+    <p class="dua-ref" id="dua-ref"></p>
+    <span class="hint">Tap anywhere to continue</span>
+  </div>
 </div>
 
 <nav class="nav" role="tablist" aria-label="Views">
@@ -488,17 +525,24 @@ function renderToday() {
   $("gday").textContent = isToday ? "Today · " + full : full;
   $("d-today").hidden = isToday;
   if (!server && !pending.length) return;
+  // The green card always counts down to today's next prayer, whichever day the table shows.
+  const today = startOfDay(new Date()), now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
+  const tSt = startRow(today), tJam = shownMosques().map(m => ({ m, row: jamRow(m.id, today) }));
+  const tNext = ROWS.findIndex(r => { const t = toMin(tSt && tSt[r.k]); return t != null && t > nowMin; });
+  if (tSt) renderNext(tSt, tJam, tNext, true); else $("next").hidden = true;
+
   const st = startRow(d);
   const jam = shownMosques().map(m => ({ m, row: jamRow(m.id, d) }));
   const fri = d.getDay() === 5;
   const notes = [];
   if (!st && !jam.some(x => x.row)) {
     $("board").innerHTML = `<div class="empty">No times on file for ${esc(monthName(mkey(d)))} yet.</div>`;
-    $("next").hidden = true;
   } else {
-    const now = new Date(), nowMin = now.getHours() * 60 + now.getMinutes();
-    const nextIdx = isToday ? ROWS.findIndex(r => { const t = toMin(st && st[r.k]); return t != null && t > nowMin; }) : -1;
-    const tmpl = `style="grid-template-columns: minmax(78px, 1.1fr) repeat(${1 + jam.length}, minmax(76px, 1fr))"`;
+    const nextIdx = isToday ? tNext : -1;
+    // Every column fits on screen (swiping is used for days, so the table can't scroll sideways).
+    const tmpl = `style="grid-template-columns: minmax(58px, 1.1fr) repeat(${1 + jam.length}, minmax(0, 1fr))"`;
+    $("board").classList.toggle("compact", jam.length >= 2);
+    $("board").classList.toggle("tight", jam.length >= 3);
     let html = `<div class="brow groups" ${tmpl}><span></span><span class="col elm" title="London Prayer Times">Start</span>${jam.map(x => `<span class="col" title="${esc(x.m.name)}">${esc(x.m.short)}</span>`).join("")}</div>
       <div class="brow head" ${tmpl}><span>Prayer</span><span>Begins</span>${jam.map(() => "<span>Jamā‘ah</span>").join("")}</div>`;
     ROWS.forEach((r, i) => {
@@ -508,7 +552,6 @@ function renderToday() {
         jam.map(x => { const j = !r.sun && x.row ? x.row[r.k] : null; return `<span class="t j tn ${j || r.sun ? "" : "none"}">${r.sun ? "" : fmt(j)}</span>`; }).join("")}</div>`;
     });
     $("board").innerHTML = html;
-    renderNext(st, jam, nextIdx, isToday);
   }
   if (!st) notes.push(`<li class="missing">No start times for ${esc(monthName(mkey(d)))} yet.</li>`);
   jam.forEach(x => {
@@ -525,7 +568,7 @@ function renderNext(st, jam, idx, isToday) {
   let r, s = st, j = jam, label = "Next", day = new Date();
   if (idx >= 0) r = ROWS[idx];
   else {
-    day = new Date(ui.day); day.setDate(day.getDate() + 1);
+    day = startOfDay(new Date()); day.setDate(day.getDate() + 1);
     s = startRow(day); j = jam.map(x => ({ m: x.m, row: jamRow(x.m.id, day) }));
     r = ROWS[0]; label = "Next · tomorrow";
   }
@@ -802,9 +845,7 @@ document.addEventListener("click", async e => {
     say("mq-say", "Removed."); return publishIfReady("mq-say");
   }
   switch (t.id) {
-    case "d-prev": ui.day = new Date(ui.day.getFullYear(), ui.day.getMonth(), ui.day.getDate() - 1); return renderToday();
-    case "d-next": ui.day = new Date(ui.day.getFullYear(), ui.day.getMonth(), ui.day.getDate() + 1); return renderToday();
-    case "d-today": ui.day = startOfDay(new Date()); return renderToday();
+    case "d-today": { const by = Math.sign(startOfDay(new Date()) - ui.day); ui.day = startOfDay(new Date()); renderToday(); return slideIn(by); }
     case "m-prev": ui.mKey = shiftMonth(ui.mKey, -1); return renderMonth();
     case "m-next": ui.mKey = shiftMonth(ui.mKey, 1); return renderMonth();
     case "refresh": case "retry": $("fresh").textContent = "Refreshing…"; return fetchData(true);
@@ -869,23 +910,175 @@ document.addEventListener("change", e => {
 });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) { ui.day = $("d-today").hidden ? startOfDay(new Date()) : ui.day; fetchData(false); render(); queueSchedule(); checkAppUpdate(); } });
 
+/* ---------- Opening du‘ā ----------
+   One is shown each time the app or site is opened, never the same one twice in a row. Tap anywhere to close. */
+// Each entry: { ar, en?, ref? }. Entries listed under DHIKR show "Dhikr" as the heading, the rest "Du‘ā".
+const DHIKR = [
+  "سبحان الله والحمد لله ولا اله الا الله والله اكبر",
+  "لا حول ولا قوة الا بالله",
+  "اللهم صل على محمد وآل محمد",
+  "استغفر الله العظيم واتوب اليه",
+  "يا ذا الجلال والاكرام",
+  "لا اله الا انت سبحانك اني كنت من الظالمين",
+  "اللهم آتنا في الدنيا حسنة وفي الآخرة حسنة وقنا عذاب النار",
+  "سبحان الله وبحمده سبحان الله العظيم",
+  "لا اله الا الله",
+  "حسبي الله ونعم الوكيل",
+];
+const DUA_TEXTS = [
+  "ربنا لا تؤاخذنا ان نسينا او اخطأنا",
+  "ربنا لا تزغ قلوبنا بعد اذ هديتنا وهب لنا من لدنك رحمة انك انت الوهاب",
+  "ربنا اننا آمنا فاغفر لنا ذنوبنا وقنا عذاب النار",
+  "ربنا اغفر لنا ذنوبنا واسرافنا في امرنا وثبت اقدامنا وانصرنا على القوم الكافرين",
+  "ربنا ظلمنا انفسنا وان لم تغفر لنا وترحمنا لنكونن من الخاسرين",
+  "رب اشرح لي صدري ويسر لي امري",
+  "رب زدني علما",
+  "رب اغفر لي ولوالدي ولمن دخل بيتي مؤمنا وللمؤمنين والمؤمنات",
+  "رب اني لما انزلت الي من خير فقير",
+  "رب اني مسني الضر وانت ارحم الراحمين",
+  "رب اغفر وارحم وانت خير الراحمين",
+  "رب اعوذ بك من همزات الشياطين واعوذ بك رب ان يحضرون",
+  "رب اعوذ بك من وساوس الشياطين",
+  "ربنا افتح بيننا وبين قومنا بالحق وانت خير الفاتحين",
+  "ربنا تقبل منا انك انت السميع العليم",
+  "ربنا هب لنا من ازواجنا وذرياتنا قرة اعين واجعلنا للمتقين اماما",
+  "رب اجعلني مقيم الصلاة ومن ذريتي ربنا وتقبل دعاء",
+  "ربنا اغفر لي ولوالدي وللمؤمنين يوم يقوم الحساب",
+  "ربنا اصرف عنا عذاب جهنم ان عذابها كان غراما",
+  "ربنا هب لنا من لدنك رحمة وهيئ لنا من امرنا رشدا",
+  "ربنا عليك توكلنا واليك انبنا واليك المصير",
+  "ربنا لا تجعلنا فتنة للذين كفروا واغفر لنا ربنا انك انت العزيز الحكيم",
+  "ربنا افرغ علينا صبرا وتوفنا مسلمين",
+  "ربنا امنا بما انزلت واتبعنا الرسول فاكتبنا مع الشاهدين",
+  "ربنا آمنا فاغفر لنا وارحمنا وانت خير الراحمين",
+  "اللهم انك عفو تحب العفو فاعف عني",
+  "اللهم اني اسألك الهدى والتقى والعفاف والغنى",
+  "اللهم اني اعوذ بك من الهم والحزن واعوذ بك من العجز والكسل واعوذ بك من الجبن والبخل واعوذ بك من غلبة الدين وقهر الرجال",
+  "اللهم اغفر لي خطيئتي وجهلي واسرافي في امري وما انت اعلم به مني",
+  "اللهم اغفر لي ذنبي كله دقه وجله واوله وآخره وعلانيته وسره",
+  "اللهم اني ظلمت نفسي ظلما كثيرا ولا يغفر الذنوب الا انت فاغفر لي مغفرة من عندك وارحمني انك انت الغفور الرحيم",
+  "اللهم اعني على ذكرك وشكرك وحسن عبادتك",
+  "اللهم اني اسألك الجنة واعوذ بك من النار",
+  "اللهم اني اعوذ بك من عذاب جهنم ومن عذاب القبر ومن فتنة المحيا والممات ومن فتنة المسيح الدجال",
+  "اللهم اني اسألك العفو والعافية في الدنيا والآخرة",
+  "اللهم اني اسألك العفو والعافية في ديني ودنياي واهلي ومالي",
+  "اللهم استر عوراتي وآمن روعاتي",
+  "اللهم اكفني بحلالك عن حرامك واغنني بفضلك عمن سواك",
+  "اللهم اني اسألك علما نافعا ورزقا طيبا وعملا متقبلا",
+  "اللهم اني اعوذ بك من علم لا ينفع ومن قلب لا يخشع ومن نفس لا تشبع ومن دعوة لا يسمع لها",
+  "اللهم اصلح لي ديني الذي هو عصمة امري واصلح لي دنياي التي فيها معاشي واصلح لي آخرتي التي فيها معادي",
+  "اللهم اجعل الحياة زيادة لي في كل خير واجعل الموت راحة لي من كل شر",
+  "اللهم اني اعوذ برضاك من سخطك وبمعافاتك من عقوبتك واعوذ بك منك لا احصي ثناء عليك انت كما اثنيت على نفسك",
+  "اللهم اني اسألك من الخير كله عاجله وآجله ما علمت منه وما لم اعلم واعوذ بك من الشر كله عاجله وآجله ما علمت منه وما لم اعلم",
+  "اللهم اني اسألك الجنة وما قرب اليها من قول او عمل واعوذ بك من النار وما قرب اليها من قول او عمل",
+  "اللهم اني اعوذ بك من شر سمعي ومن شر بصري ومن شر لساني ومن شر قلبي ومن شر مني",
+  "اللهم اني اعوذ بك من زوال نعمتك وتحول عافيتك وفجاءة نقمتك وجميع سخطك",
+  "اللهم لا سهل الا ما جعلته سهلا وانت تجعل الحزن اذا شئت سهلا",
+  "اللهم اني اسألك الثبات في الامر والعزيمة على الرشد",
+  "اللهم اني اسألك موجبات رحمتك وعزائم مغفرتك والسلامة من كل اثم والغنيمة من كل بر والفوز بالجنة والنجاة من النار",
+  "اللهم اهدني وسددني",
+  "اللهم اغفر لي وارحمني واهدني وعافني وارزقني",
+  "اللهم اشفني شفاء لا يغادر سقما",
+  "اللهم رب الناس اذهب الباس واشف انت الشافي لا شفاء الا شفاؤك شفاء لا يغادر سقما",
+  "اللهم اني اعوذ بك من البرص والجنون والجذام ومن سيئ الاسقام",
+  "اللهم بارك لي فيما رزقتني وقني عذاب النار",
+  "اللهم اقض عني الدين واغنني من الفقر",
+  "اللهم اني اعوذ بك من المأثم والمغرم",
+  "اللهم اني اعوذ بك من فتنة النار وعذاب النار ومن شر فتنة الغنى والفقر",
+  "اللهم اني اسألك حسن الخاتمة",
+  "اللهم اجعل خير عمري آخره وخير عملي خواتمه وخير ايامي يوم القاك",
+  "اللهم ثبت قلبي على دينك",
+  "يا مقلب القلوب ثبت قلبي على دينك",
+  "اللهم مصرف القلوب صرف قلوبنا على طاعتك",
+  "اللهم اني اعوذ بك ان أَضِل أَو أُضَل، أَو أَزِل أَو أُزَل، أَو أَظلِمَ أَو أُظلَم، أَو أَجهَلَ أَو يُجهل عليَّ",
+  "اللهم اني اعوذ بك من منكرات الاخلاق والاعمال والاهواء",
+  "اللهم طهر قلبي من النفاق وعملي من الرياء ولساني من الكذب وعيني من الخيانة",
+  "اللهم ارزقني حبك وحب من يحبك وحب عمل يقربني الى حبك",
+  "حسبي الله لا اله الا هو عليه توكلت وهو رب العرش العظيم",
+];
+const DUAS = [...DHIKR.map(ar => ({ ar, kind: "Dhikr" })), ...DUA_TEXTS.map(ar => ({ ar, kind: "Du‘ā" }))];
+function showDua() {
+  if (!DUAS.length || location.hash === "#admin") return;
+  const last = load("st-dua-last", -1);
+  let i = Math.floor(Math.random() * DUAS.length);
+  if (DUAS.length > 1 && i === last) i = (i + 1) % DUAS.length;
+  save("st-dua-last", i);
+  const d = DUAS[i];
+  $("dua-kind").textContent = d.kind || "Du‘ā";
+  $("dua-ar").textContent = d.ar || ""; $("dua-en").textContent = d.en || ""; $("dua-ref").textContent = d.ref || "";
+  const box = $("dua"); box.hidden = false;
+  const close = () => { box.classList.add("out"); setTimeout(() => { box.hidden = true; box.classList.remove("out"); }, 250);
+    box.removeEventListener("click", close); document.removeEventListener("keydown", close); };
+  box.addEventListener("click", close); document.addEventListener("keydown", close);
+}
+
+/* ---------- Swiping between days ---------- */
+function slideIn(by) {
+  const b = $("board"); b.classList.remove("in-left", "in-right");
+  if (!by) return;
+  void b.offsetWidth; b.classList.add(by > 0 ? "in-right" : "in-left");
+}
+function shiftDay(by) {
+  ui.day = new Date(ui.day.getFullYear(), ui.day.getMonth(), ui.day.getDate() + by);
+  renderToday(); slideIn(by);
+  if (!load("st-swiped", false)) { save("st-swiped", true); $("swipehint").hidden = true; }
+}
+$("swipehint").hidden = !!load("st-swiped", false);
+(() => {
+  const b = $("board");
+  let sx = null, sy = 0, dx = 0, horiz = null;
+  b.addEventListener("pointerdown", e => { if (e.pointerType === "mouse" && e.button !== 0) return; sx = e.clientX; sy = e.clientY; dx = 0; horiz = null; });
+  b.addEventListener("pointermove", e => {
+    if (sx == null) return;
+    const x = e.clientX - sx, y = e.clientY - sy;
+    if (horiz == null && (Math.abs(x) > 8 || Math.abs(y) > 8)) horiz = Math.abs(x) > Math.abs(y);
+    if (!horiz) return;
+    dx = x; b.style.transition = "none";
+    b.style.transform = `translateX(${x * 0.6}px)`; b.style.opacity = String(1 - Math.min(Math.abs(x) / 700, .35));
+  });
+  const end = () => {
+    if (sx == null) return;
+    sx = null; b.style.transition = ""; b.style.transform = ""; b.style.opacity = "";
+    if (horiz && Math.abs(dx) > 60) shiftDay(dx < 0 ? 1 : -1);
+  };
+  b.addEventListener("pointerup", end);
+  b.addEventListener("pointercancel", end);
+  b.addEventListener("pointerleave", e => { if (e.pointerType === "mouse") end(); });
+  document.addEventListener("keydown", e => {
+    if (ui.view !== "today" || e.target.closest("input, textarea, select")) return;
+    if (e.key === "ArrowLeft") shiftDay(-1); else if (e.key === "ArrowRight") shiftDay(1);
+  });
+})();
+
 /* ---------- Reminders (Android app only) ----------
    Scheduled on the phone itself, so they fire with no signal and the app closed. Re-scheduled whenever the
    times, the ticked mosques or the reminder settings change, and each time the app is opened. */
-const REM_DEFAULT = { start: { fajr: true, sunrise: false, dhuhr: true, asr: true, maghrib: true, isha: true }, before: {}, jamaah: {}, last: {}, beforeMins: 15, jamaahMins: 10, lastMins: 15 };
+const REM_DEFAULT = { start: { fajr: true, sunrise: false, dhuhr: true, asr: true, maghrib: true, isha: true }, jamaah: {}, last: {},
+  daily: { duha: true, witr: true, morning: true, evening: true, children: true }, jamaahMins: 10, lastMins: 15 };
+const plusMin = (t, n) => { const m = toMin(t); return m == null ? null : pad(Math.floor((m + n) % 1440 / 60)) + ":" + pad((m + n) % 60); };
+// Daily reminders at fixed times (evening adhkār follows ‘Asr).
+const DAILY = [
+  { k: "duha", label: "Ḍuḥā prayer", when: "11:00am", times: () => ["11:00"], title: "Ḍuḥā prayer", body: "A good time to pray Ḍuḥā." },
+  { k: "witr", label: "Witr prayer", when: "11:00pm", times: () => ["23:00"], title: "Witr prayer", body: "Pray Witr before you sleep." },
+  { k: "morning", label: "Morning adhkār", when: "8:00am", times: () => ["08:00"], title: "Morning adhkār", body: "Time for the morning adhkār." },
+  { k: "evening", label: "Evening adhkār", when: "30 min after ‘Asr starts", times: st => st.asr ? [plusMin(st.asr, 30)] : [], title: "Evening adhkār", body: "Time for the evening adhkār." },
+  { k: "children", label: "Children's protection du‘ā", when: "9:00am and 9:00pm", times: () => ["09:00", "21:00"], title: "Protection for the children",
+    body: "أعيذكم بكلمات الله التامة من كل شيطان وهامة ومن كل عين لامة" },
+];
 const rem = Object.assign(clone(REM_DEFAULT), load("st-rem", {}));
+rem.daily = Object.assign({}, REM_DEFAULT.daily, rem.daily);   // new daily reminders start switched on
 const REM_COLS = [
   { type: "start", label: "Starts", keys: START_COLS },
-  { type: "before", label: "Before", keys: START_COLS },
   { type: "jamaah", label: "Jamā‘ah", keys: JAM_COLS },
   { type: "last", label: "Last call", keys: ["fajr", "dhuhr", "asr", "maghrib", "isha"] },
 ];
 // Android plays a channel's sound, so each reminder type has its own channel.
 const CHANNELS = [
-  { id: "st-start", name: "Prayer has started", description: "When a prayer time begins", sound: "start.wav", importance: 4 },
-  { id: "st-before", name: "Before a prayer starts", description: "Some minutes before a prayer begins", sound: "before.wav", importance: 4 },
-  { id: "st-jamaah", name: "Before jamā‘ah", description: "Some minutes before a mosque's jamā‘ah", sound: "jamaah.wav", importance: 4 },
-  { id: "st-last", name: "Last call", description: "Before a prayer's time runs out", sound: "lastcall.wav", importance: 5 },
+  // Android fixes a channel's sound when it's first created, so a new sound needs a new channel id (-2 = non-musical sounds, Oct 2026).
+  { id: "st-start-2", name: "Prayer has started", description: "When a prayer time begins", sound: "start.wav", importance: 4 },
+  { id: "st-jamaah-2", name: "Before jamā‘ah", description: "Some minutes before a mosque's jamā‘ah", sound: "jamaah.wav", importance: 4 },
+  { id: "st-last-2", name: "Last call", description: "Before a prayer's time runs out", sound: "lastcall.wav", importance: 5 },
+  { id: "st-daily-2", name: "Daily adhkār and du‘ā", description: "Ḍuḥā, Witr, morning and evening adhkār, children's protection", sound: "daily.wav", importance: 4 },
 ];
 const MINUTES = [5, 10, 15, 20, 25, 30, 45, 60];
 let remState = { note: "" }, schedTimer = null;
@@ -893,6 +1086,8 @@ let remState = { note: "" }, schedTimer = null;
 async function setupReminders() {
   if (!LN) return;
   for (const c of CHANNELS) { try { await LN.createChannel({ ...c, visibility: 1, vibration: true, lights: true, lightColor: "#E3C88E" }); } catch {} }
+  // Remove channels from earlier versions: "before start" (removed) and the old bell sounds.
+  for (const id of ["st-before", "st-start", "st-jamaah", "st-last", "st-daily"]) { try { await LN.deleteChannel({ id }); } catch {} }
   queueSchedule();
 }
 function queueSchedule() { if (!LN) return; clearTimeout(schedTimer); schedTimer = setTimeout(scheduleReminders, 600); }
@@ -906,7 +1101,8 @@ async function scheduleReminders() {
 
     const jam = shownMosques();
     const count = t => Object.values(rem[t]).filter(Boolean).length;
-    const perDay = count("start") + count("before") + count("jamaah") * jam.length + count("last");
+    const perDay = count("start") + count("jamaah") * jam.length + count("last")
+      + DAILY.filter(x => rem.daily[x.k]).reduce((n, x) => n + x.times({ asr: "15:00" }).length, 0);
     if (!perDay) { remState = { note: "No reminders are ticked." }; return renderRem(); }
     // Android allows about 500 scheduled alarms per app, so cover as many days as fit (up to 30).
     const days = Math.max(2, Math.min(30, Math.floor(400 / perDay)));
@@ -933,13 +1129,12 @@ async function scheduleReminders() {
           add(at(t, 0, day), 0, p, k === "sunrise" ? `Sunrise · ${fmtPlain(t)}` : `${name(k)} has started`,
             k === "sunrise" ? "Fajr time has ended." : `Began ${fmtPlain(t)}${jams.length ? " · Jamā‘ah " + jams.join(", ") : ""}`);
         }
-        if (rem.before[k]) add(at(t, rem.beforeMins, day), 1, p, `${name(k)} in ${rem.beforeMins} minutes`, `${k === "sunrise" ? "Sunrise" : "Starts"} at ${fmtPlain(t)}`);
       });
       JAM_COLS.forEach((k, p) => {
         if (!rem.jamaah[k]) return;
         jam.forEach((m, mi) => {
           const r = jamRow(m.id, day), t = r && r[k];
-          if (t && mi < 9) add(at(t, rem.jamaahMins, day), 2, mi * 10 + p, `${m.short} · ${name(k)} jamā‘ah in ${rem.jamaahMins} minutes`, `${m.name}, ${fmtPlain(t)}`);
+          if (t && mi < 9) add(at(t, rem.jamaahMins, day), 1, mi * 10 + p, `${m.short} · ${name(k)} jamā‘ah in ${rem.jamaahMins} minutes`, `${m.name}, ${fmtPlain(t)}`);
         });
       });
       // A prayer's time runs out when the next one starts (Fajr at sunrise, ‘Ishā at the next Fajr).
@@ -947,7 +1142,11 @@ async function scheduleReminders() {
       ["fajr", "dhuhr", "asr", "maghrib", "isha"].forEach((k, p) => {
         if (!rem.last[k]) return;
         const [ek, row, d] = ENDS[k], t = row && row[ek];
-        if (t) add(at(t, rem.lastMins, d), 3, p, `${name(k)} ends in ${rem.lastMins} minutes`, `${LABEL[ek]} at ${fmtPlain(t)}. Pray ${name(k)} now if you haven't yet.`);
+        if (t) add(at(t, rem.lastMins, d), 2, p, `${name(k)} ends in ${rem.lastMins} minutes`, `${LABEL[ek]} at ${fmtPlain(t)}. Pray ${name(k)} now if you haven't yet.`);
+      });
+      DAILY.forEach((x, p) => {
+        if (!rem.daily[x.k]) return;
+        x.times(st).forEach((t, j) => add(at(t, 0, day), 3, p * 10 + j, x.title, x.body));
       });
     }
     if (list.length) await LN.schedule({ notifications: list });
@@ -979,7 +1178,9 @@ async function renderRem() {
   const rows = START_COLS.map(k => `<tr><td>${LABEL[k]}</td>${REM_COLS.map(c => c.keys.includes(k)
     ? `<td><input type="checkbox" id="rem-${c.type}-${k}" data-rem="${c.type}:${k}" ${rem[c.type][k] ? "checked" : ""} aria-label="${c.label}: ${LABEL[k]}"></td>` : "<td></td>").join("")}</tr>`).join("");
   $("rem-grid").innerHTML = `<thead><tr><th>Prayer</th>${REM_COLS.map(c => `<th>${c.label}</th>`).join("")}</tr></thead><tbody>${rows}</tbody>`;
-  for (const [id, key] of [["rem-before", "beforeMins"], ["rem-jamaah", "jamaahMins"], ["rem-last", "lastMins"]]) {
+  $("rem-daily").innerHTML = `<thead><tr><th>Daily</th><th>When</th><th>On</th></tr></thead><tbody>${DAILY.map(x =>
+    `<tr><td>${x.label}</td><td class="when">${x.when}</td><td><input type="checkbox" id="rem-daily-${x.k}" data-rem="daily:${x.k}" ${rem.daily[x.k] ? "checked" : ""} aria-label="${x.label}"></td></tr>`).join("")}</tbody>`;
+  for (const [id, key] of [["rem-jamaah", "jamaahMins"], ["rem-last", "lastMins"]]) {
     $(id).innerHTML = MINUTES.map(m => `<option value="${m}" ${rem[key] === m ? "selected" : ""}>${m} minutes</option>`).join("");
   }
 }
@@ -989,7 +1190,8 @@ async function testReminders(btn) {
   try {
     const p = await LN.requestPermissions(); if (p.display !== "granted") return turnOnReminders();
     const base = Date.now();
-    const samples = [["Maghrib has started", "Example: prayer start sound"], ["Fajr in 15 minutes", "Example: before-start sound"], ["MUS · ‘Ishā jamā‘ah in 10 minutes", "Example: jamā‘ah sound"], ["‘Asr ends in 15 minutes", "Example: last-call warning sound"]];
+    // One per channel, in CHANNELS order: start, jamā‘ah, last call, daily.
+    const samples = [["Maghrib has started", "Example: prayer start sound"], ["MUS · ‘Ishā jamā‘ah in 10 minutes", "Example: jamā‘ah sound"], ["‘Asr ends in 15 minutes", "Example: last-call warning sound"], ["Morning adhkār", "Example: daily reminder sound"]];
     await LN.schedule({ notifications: samples.map(([title, body], i) => ({ id: 990001 + i, title, body, channelId: CHANNELS[i].id, sound: CHANNELS[i].sound, smallIcon: "ic_stat_salah", iconColor: "#1E4A38", schedule: { at: new Date(base + 4000 + i * 6000), allowWhileIdle: true } })) });
     btn.textContent = "Playing over the next 25 seconds…"; setTimeout(() => btn.textContent = "Play test reminders", 26000);
   } catch (e) { remState = { note: "Couldn't play the test: " + (e && e.message ? e.message : e) }; renderRem(); }
@@ -1015,6 +1217,7 @@ if (location.hash === "#admin") startView = "data";
 showView(["today", "month", "data"].includes(startView) ? startView : "today");
 window.addEventListener("hashchange", () => { if (location.hash === "#admin" && ui.view !== "data") showView("data"); });
 fetchData(false);
+showDua();
 setInterval(() => {
   if (ui.view !== "today") return;
   const today = startOfDay(new Date());
