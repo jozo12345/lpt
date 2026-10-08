@@ -63,7 +63,8 @@ for ($y = 0; $y -lt $H; $y++) {
 $patternPath = Join-Path $env:TEMP "salah-pattern.png"; Save-Pixels $W $H $fgBytes $patternPath
 
 # Android adaptive icons show only the middle ~2/3 and may crop to a circle, so the pattern is shrunk to fit that safe area.
-$SAFE = 0.64
+# 0.72 = slightly larger than the strict circle-safe 0.64 (user preferred it less zoomed out); circle masks may just touch the outer corners.
+$SAFE = 0.72
 Resize $patternPath 1024 (Join-Path $app "assets\icon-foreground.png") $SAFE
 Resize $patternPath 1024 (Join-Path $app "assets\icon-only.png") $SAFE $bgPath
 
@@ -72,6 +73,22 @@ Resize $logoPath 192 (Join-Path $web "icons\icon-192.png")
 Resize $logoPath 512 (Join-Path $web "icons\icon-512.png")
 Resize $logoPath 180 (Join-Path $web "icons\apple-touch-icon.png")
 Resize $patternPath 512 (Join-Path $web "icons\icon-maskable-512.png") $SAFE $bgPath
+
+# Favicon (browser tab): only the central eight-point star, on the same green gradient.
+# The star sits in the middle of the logo, roughly 26%-74% across and down.
+function Favicon($size, $outPath) {
+  $pat = New-Object Drawing.Bitmap $patternPath; $bg = New-Object Drawing.Bitmap $bgPath
+  $out = New-Object Drawing.Bitmap $size, $size; $g = [Drawing.Graphics]::FromImage($out)
+  $g.InterpolationMode = 'HighQualityBicubic'; $g.SmoothingMode = 'AntiAlias'; $g.PixelOffsetMode = 'HighQuality'
+  $g.DrawImage($bg, 0, 0, $size, $size)
+  $c = [int]($W * 0.255); $cw = $W - 2 * $c                       # crop box around the star
+  $d = [int][Math]::Round($size * 0.86); $off = [int](($size - $d) / 2)   # star fills ~86% of the favicon
+  $g.DrawImage($pat, (New-Object Drawing.Rectangle $off, $off, $d, $d), (New-Object Drawing.Rectangle $c, $c, $cw, $cw), [Drawing.GraphicsUnit]::Pixel)
+  $out.Save($outPath, [Drawing.Imaging.ImageFormat]::Png); $g.Dispose(); $out.Dispose(); $pat.Dispose(); $bg.Dispose()
+}
+Favicon 32 (Join-Path $web "icons\favicon-32.png")
+Favicon 64 (Join-Path $web "icons\favicon-64.png")
+Favicon 512 (Join-Path $env:TEMP "salah-favicon-preview.png")
 
 # Notification icon: the white symbol, at Android's largest status-bar size.
 Resize $symbolPath 96 (Join-Path $app "res\drawable\ic_stat_salah.png")
