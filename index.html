@@ -120,7 +120,18 @@ h2 { font-size: 1.35rem; }
 .next .stop.passed i { background: var(--gold-light); }
 .next .stop span { font-size: .7rem; line-height: 1; white-space: nowrap; opacity: .7; }
 .next .stop.next-stop span { opacity: 1; font-weight: 700; color: var(--gold-light); }
-.next .here { position: absolute; top: 1px; width: 12px; height: 12px; transform: translateX(-50%); border-radius: 50%; background: #fff; box-shadow: 0 0 0 4px rgba(255, 255, 255, .2); z-index: 2; }
+.next .here { --c: #fff; --p: 2s; --t: 0s; position: absolute; top: 1px; width: 12px; height: 12px; transform: translateX(-50%); border-radius: 50%; background: var(--c); box-shadow: 0 0 0 4px rgba(255, 255, 255, .2); z-index: 2; transition: background .6s; }
+/* The last 20 minutes before a prayer: the dot sends out radar rings like a beacon, turning amber at 15 minutes and red at 10.
+   The page redraws every second, so --t (set from the clock) keeps the animation running smoothly instead of restarting. */
+.next .here.amber { --c: #F5B53D; }
+.next .here.red { --c: #FF5A4E; --p: 1.2s; }
+.next .here.near { animation: beacon var(--p) ease-in-out var(--t) infinite; }
+.next .here.near::before, .next .here.near::after { content: ""; position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--c); opacity: 0; pointer-events: none;
+  animation: radar var(--p) ease-out var(--t) infinite; }
+.next .here.near::after { animation-delay: calc(var(--t) - var(--p) / 2); }
+@keyframes radar { 0% { transform: scale(1); opacity: .9; } 100% { transform: scale(3.4); opacity: 0; } }
+@keyframes beacon { 0%, 100% { box-shadow: 0 0 0 4px rgba(255, 255, 255, .2), 0 0 0 0 var(--c); } 50% { box-shadow: 0 0 0 4px rgba(255, 255, 255, .2), 0 0 12px 3px var(--c); } }
+@media (prefers-reduced-motion: reduce) { .next .here.near, .next .here.near::before, .next .here.near::after { animation: none; } }
 .next .jl { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: baseline; font-size: 1rem; }
 .next .jl b { font-weight: 800; color: var(--gold-light); letter-spacing: .06em; min-width: 3em; font-size: .85rem; }
 .next .jl span:last-child { font-family: var(--font-display); font-size: clamp(1.1rem, 5vw, 1.35rem); white-space: nowrap; }
@@ -825,13 +836,17 @@ function trackHtml() {
   const x = i => 0.1 + 0.8 * (last ? i / last : 0);
   const hereX = x(pi) + (x(pi + 1) - x(pi)) * (now - prev.at) / (next.at - prev.at);
   const pct = v => (v * 100).toFixed(2) + "%";
+  // Last 20 minutes: beacon; last 15: amber; last 10: red.
+  const left = (next.at - now) / 1000;
+  const beacon = left <= 600 ? "near red" : left <= 900 ? "near amber" : left <= 1200 ? "near" : "";
+  const period = left <= 600 ? 1200 : 2000, t = `-${(now % period) / 1000}s`;
   return `<div class="track" aria-hidden="true">
     <div class="tail" style="width:${pct(x(0))}"></div>
     <div class="rail done" style="left:${pct(x(0))};width:${pct(hereX - x(0))}"></div>
     <div class="rail" style="left:${pct(hereX)};width:${pct(x(last) - hereX)}"></div>
     <div class="tail end" style="left:${pct(x(last))};width:${pct(1 - x(last))}"></div>
     ${stops.map((s, i) => `<div class="stop ${i <= pi ? "passed" : ""} ${i === pi + 1 ? "next-stop" : ""}" style="left:${pct(x(i))}"><i></i><span>${s.name}</span></div>`).join("")}
-    <div class="here" style="left:${pct(hereX)}"></div></div>`;
+    <div class="here ${beacon}" style="left:${pct(hereX)};--t:${t}"></div></div>`;
 }
 
 function countdown(secs) {
