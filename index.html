@@ -848,15 +848,15 @@ function renderNext(st, jam, idx, isToday) {
     return `<div class="jl"><b>${esc(x.m.short)}</b><span class="tn">${label}${fmtPlain(nj.time)}</span><span class="tn">${countdown(nj.secs)}</span></div>`;
   }).join("");
   const prev = previousPrayer(nowSec);
-  box.innerHTML = `${ram ? `<div class="rhead"><b>${tr("Ramadan", "رمضان")}</b><span>${tr(`Day ${ram.n} of ${ram.len}`, `اليوم ${N(ram.n)} من ${N(ram.len)}`)}</span></div>` : ""}${prev ? `<div class="prev tn">${tr(`${prev.name} was <b>${sinceText(prev.secs)}</b>`, `دخل ${prev.name} <b>${sinceText(prev.secs)}</b>`)}</div>` : ""}<div><div class="lbl">${label}</div><div class="nm">${name}</div><div class="sub tn">${tr("Begins", "يبدأ")} ${fmtPlain(b)}</div></div><div class="cd tn"><small>${tr("starts in", "يبدأ بعد")}</small>${countdown(secs)}</div>${trackHtml()}${
+  box.innerHTML = `${ram ? `<div class="rhead"><b>${tr("Ramadan", "رمضان")}</b><span>${tr(`Day ${ram.n} of ${ram.len}`, `اليوم ${N(ram.n)} من ${N(ram.len)}`)}</span></div>` : ""}${prev ? `<div class="prev tn">${tr(`${prev.name} was <b>${sinceText(prev.secs)}</b>`, `دخل ${prev.name} <b>${sinceText(prev.secs)}</b>`)}</div>` : ""}<div><div class="lbl">${label}</div><div class="nm">${name}</div><div class="sub tn">${r.k === "sunrise" ? tr(`Fajr ends ${fmtPlain(b)}`, `ينتهي الفجر ${fmtPlain(b)}`) : `${tr("Begins", "يبدأ")} ${fmtPlain(b)}`}</div></div><div class="cd tn"><small>${tr("starts in", "يبدأ بعد")}</small>${countdown(secs)}</div>${trackHtml()}${
     jamLines ? `<div class="jams">${jamLines}</div>` : ""}`;
   box.hidden = false;
 }
 
-// The most recent prayer that has started (sunrise isn't a prayer, so it's skipped); before Fajr that's last night's ‘Ishā.
+// The most recent time that has passed, sunrise included; before Fajr that's last night's ‘Ishā.
 function previousPrayer(nowSec) {
   const today = startOfDay(new Date()), st = startRow(today);
-  for (const k of ["isha", "maghrib", "asr", "dhuhr", "fajr"]) {
+  for (const k of ["isha", "maghrib", "asr", "dhuhr", "sunrise", "fajr"]) {
     const m = toMin(st && st[k]);
     if (m != null && m * 60 <= nowSec) return { name: today.getDay() === 5 && k === "dhuhr" ? JUMUAH : LABEL[k], secs: nowSec - m * 60 };
   }
@@ -880,7 +880,7 @@ function trackHtml() {
   for (const d of [-1, 0, 1, 2]) {
     const day = new Date(today); day.setDate(day.getDate() + d);
     const st = startRow(day); if (!st) continue;
-    for (const k of ["fajr", "dhuhr", "asr", "maghrib", "isha"]) {
+    for (const k of ["fajr", "sunrise", "dhuhr", "asr", "maghrib", "isha"]) {
       const m = toMin(st[k]); if (m == null) continue;
       ev.push({ name: day.getDay() === 5 && k === "dhuhr" ? JUMUAH : LABEL[k], at: new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, m).getTime() });
     }
