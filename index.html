@@ -19,7 +19,15 @@
 <title>Salah Times</title>
 <script>
 // The website moved from GitHub Pages to Firebase Hosting (Nov 2026).
-if (/\.github\.io$/.test(location.hostname)) location.replace("https://my5alat.web.app/" + location.hash);
+// Changes saved in a browser on the old address but never published travel with the redirect, so they aren't stranded.
+if (/\.github\.io$/.test(location.hostname)) {
+  let h = location.hash;
+  try {
+    const p = localStorage.getItem("st-pending");
+    if (p && p !== "[]") { h = "#admin&import=" + encodeURIComponent(btoa(unescape(encodeURIComponent(p)))); localStorage.removeItem("st-pending"); }
+  } catch {}
+  location.replace("https://my5alat.web.app/" + h);
+}
 </script>
 <script src="app-config.js"></script>
 <script src="firebase-config.js"></script>
@@ -244,6 +252,14 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
 .linkbtn.subtle { color: var(--muted); font-weight: 500; }
 .adminbar { display: flex; align-items: center; gap: 12px; }
 .adminbar h1 { font-size: 1.8rem; }
+.acct { gap: 10px; }
+.acct .who { font-weight: 800; overflow-wrap: anywhere; }
+.acct.is-admin { border-color: var(--green); }
+.pend { display: grid; gap: 10px; background: var(--gold-soft); border: 1px solid var(--gold); border-radius: var(--r); padding: 14px; font-size: .88rem; }
+.pend b { font-size: .95rem; }
+.pendlist { margin: 0; padding-left: 1.2em; display: grid; gap: 2px; color: var(--ink, inherit); }
+.edit-head { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
+.edit-head h2 { font-size: 1.1rem; }
 .wrap:has(#v-data:not([hidden])) { padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
 
 /* Temporary font tester */
@@ -286,11 +302,20 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
   <section id="v-data" hidden style="display:grid;gap:14px">
     <div class="adminbar">
       <button class="iconbtn" data-view="today" aria-label="Back to today">‹</button>
-      <h1>Admin</h1>
+      <h1 id="admin-title">Admin</h1>
     </div>
-    <div class="banner" id="pendingbar" hidden>
-      <span id="pendingtext"></span>
-      <button class="btn primary" id="pub-now">Publish now</button>
+
+    <div class="panel acct" id="acct">
+      <p class="say" id="sign-say" aria-live="polite"></p>
+      <div class="actions" id="sign-actions"></div>
+    </div>
+
+    <div class="pend" id="pendingbar" hidden>
+      <b id="pendingtitle"></b>
+      <span class="say" id="pendingtext"></span>
+      <ul class="pendlist" id="pendlist"></ul>
+      <div class="actions" id="pendactions"></div>
+      <p class="say" id="pend-say" aria-live="polite"></p>
     </div>
 
     <div class="panel">
@@ -318,8 +343,12 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
 
     <div style="display:grid;gap:10px">
       <h2>Timetables on file</h2>
-      <div class="status" id="status"></div>
+      <p class="say">Start times arrive by themselves every Monday, up to a year ahead. Jamā‘ah times are added month by month when each mosque publishes them.</p>
+      <div style="overflow-x:auto;padding-bottom:4px"><div class="status" id="status"></div></div>
     </div>
+
+    <div id="editarea" hidden style="display:grid;gap:14px">
+    <div class="edit-head"><h2>Edit for everyone</h2><span class="say">Changes go live straight away.</span></div>
 
     <div class="panel">
       <h2>Add timetables</h2>
@@ -365,13 +394,7 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
       <p class="say" id="ram-say" aria-live="polite"></p>
     </details>
 
-    <div class="panel" id="signpanel">
-      <h2>Publishing</h2>
-      <p class="say" id="sign-say" aria-live="polite"></p>
-      <div class="actions" id="sign-actions"></div>
-    </div>
-
-    <details class="panel" id="adminspanel" hidden>
+    <details class="panel" id="adminspanel">
       <summary>Admins</summary>
       <p class="say">These Google accounts can change the timetables for everyone.</p>
       <ul class="adminlist" id="adminlist"></ul>
@@ -379,6 +402,13 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
       <div class="actions"><button class="btn" id="adm-add">Add admin</button></div>
       <p class="say" id="adm-say" aria-live="polite"></p>
     </details>
+
+    <details class="panel">
+      <summary>Backup</summary>
+      <p class="say">Download everything as one file. GitHub also keeps a weekly copy in data/timetables.json.</p>
+      <div class="actions"><button class="btn" id="dl-data">Download data file</button></div>
+    </details>
+    </div>
 
     <div class="foot">
       <span>Start times: <a href="https://www.londonprayertimes.com/" target="_blank" rel="noopener">London Prayer Times</a>, sourced from East London Mosque. Jamā‘ah times as published by each mosque.</span>
@@ -543,7 +573,33 @@ function prune(d) {
   for (const id of Object.keys(d.jamaah)) for (const k of Object.keys(d.jamaah[id])) if (k < keep) delete d.jamaah[id][k];
   return d;
 }
-function recompute() { D = applyOps(server, pending); }
+// The app always shows exactly what everyone sees. On the website, an admin's unpublished changes show as a preview.
+function recompute() { D = NATIVE ? applyOps(server, []) : applyOps(server, pending); }
+function setPending(p) { pending = p; save("st-pending", pending); recompute(); }
+// Unpublished changes brought over from the app or the old address arrive in the link: #admin&import=…
+function importFromHash() {
+  const m = location.hash.match(/[#&]import=([^&]+)/);
+  if (!m) return 0;
+  let ops = [];
+  try { ops = JSON.parse(decodeURIComponent(escape(atob(decodeURIComponent(m[1]))))); } catch {}
+  try { history.replaceState(null, "", location.pathname + location.search + "#admin"); } catch {}
+  if (!Array.isArray(ops)) return 0;
+  const have = new Set(pending.map(o => JSON.stringify(o)));
+  const fresh = ops.filter(o => o && typeof o.op === "string" && !have.has(JSON.stringify(o)));
+  if (fresh.length) setPending([...pending, ...fresh]);
+  return fresh.length;
+}
+const imported = NATIVE ? 0 : importFromHash();
+// A line for each unpublished change, so it can be checked before publishing or discarding.
+function describeOp(o) {
+  const nm = id => { const m = (server && server.mosques || []).concat(pending.filter(x => x.op === "addMosque").map(x => x.mosque)).find(m => m.id === id); return m ? m.name : id; };
+  if (o.op === "start") return `Start times for ${monthName(o.month)}`;
+  if (o.op === "jamaah") return `Jamā‘ah times for ${nm(o.id)}, ${monthName(o.month)}`;
+  if (o.op === "addMosque") return `New mosque: ${o.mosque.name} (${o.mosque.short})`;
+  if (o.op === "removeMosque") return `Remove mosque: ${nm(o.id)}`;
+  if (o.op === "ramadan") return `Ramadan dates: from ${o.value.start}, ${o.value.days} days`;
+  return o.op;
+}
 recompute();
 
 function startRow(date) {
@@ -791,7 +847,7 @@ function renderFresh(failed) {
   const appLink = !NATIVE ? `<a class="linkbtn subtle" href="${APK_URL}">Android app</a>` : "";
   const version = NATIVE && CFG ? `<span>App ${CFG.build}</span>` : "";
   $("fresh").innerHTML = `${live ? "<span>Times are live: changes show straight away.</span>"
-    : `<span>${failed ? "Offline. " : ""}Times updated ${when}.</span><button class="linkbtn" id="refresh">Refresh</button>`}<span class="grow"></span>${version}${appLink}<button class="linkbtn subtle" data-view="data">Admin</button>`;
+    : `<span>${failed ? "Offline. " : ""}Times updated ${when}.</span><button class="linkbtn" id="refresh">Refresh</button>`}<span class="grow"></span>${version}${appLink}<button class="linkbtn subtle" data-view="data">${NATIVE ? "Settings" : "Admin"}</button>`;
 }
 function ago(t) {
   const m = Math.round((Date.now() - t) / 60000);
@@ -846,10 +902,14 @@ function sheet(key, days, cols, flags) {
 
 /* ---------- Timetables tab ---------- */
 function renderData() {
-  const base = mkey(new Date());
-  const keys = [-1, 0, 1, 2].map(o => shiftMonth(base, o));
-  const pendingKeys = new Set(pending.filter(o => o.month).map(o => (o.op === "start" ? "elm" : o.id) + ":" + o.month));
-  let h = `<span></span>` + keys.map(k => `<span class="mh">${new Date(+k.slice(0, 4), +k.slice(5) - 1, 1).toLocaleDateString("en-GB", { month: "short" })}</span>`).join("");
+  // From last month to the furthest month anyone has a timetable for (at least two months ahead), so new months appear by themselves.
+  const base = mkey(new Date()), first = shiftMonth(base, -1);
+  const onFile = [...Object.keys(D.start), ...Object.values(D.jamaah).flatMap(o => Object.keys(o))].filter(k => k >= first).sort();
+  let last = shiftMonth(base, 2); if (onFile.length && onFile[onFile.length - 1] > last) last = onFile[onFile.length - 1];
+  const keys = []; for (let k = first; k <= last && keys.length < 15; k = shiftMonth(k, 1)) keys.push(k);
+  $("status").style.gridTemplateColumns = `minmax(56px, auto) repeat(${keys.length}, minmax(56px, 1fr))`;
+  const pendingKeys = new Set(NATIVE ? [] : pending.filter(o => o.month).map(o => (o.op === "start" ? "elm" : o.id) + ":" + o.month));
+  let h = `<span></span>` + keys.map(k => `<span class="mh">${new Date(+k.slice(0, 4), +k.slice(5) - 1, 1).toLocaleDateString("en-GB", { month: "short" })}${k.slice(0, 4) !== base.slice(0, 4) ? " ’" + k.slice(2, 4) : ""}</span>`).join("");
   const rows = [{ id: "elm", short: "Start", name: "Start times (London Prayer Times)" }, ...mosques()];
   for (const m of rows) {
     h += `<span class="mo" title="${esc(m.name)}">${esc(m.short)}</span>`;
@@ -860,33 +920,61 @@ function renderData() {
     }
   }
   $("status").innerHTML = h;
-  $("pendingbar").hidden = !pending.length;
-  if (pending.length) $("pendingtext").textContent = `${pending.length} change${pending.length > 1 ? "s" : ""} saved on this device only. Publish to update the website for everyone.`;
+  renderPending();
   $("mlist").innerHTML = mosques().map(m => `<li><span class="short">${esc(m.short)}</span><span class="nm">${esc(m.name)}</span>${
     ui.removing === m.id ? `<span class="say">Remove from the list?</span><button class="btn" data-rmyes="${esc(m.id)}">Remove</button><button class="btn" data-rmno="1">Keep</button>`
       : `<button class="linkbtn" data-rm="${esc(m.id)}">Remove</button>`}</li>`).join("") || `<li class="say">No jamā‘ah mosques yet.</li>`;
-  if (document.activeElement !== $("ram-start") && document.activeElement !== $("ram-days")) {
+  if (canEdit() && document.activeElement !== $("ram-start") && document.activeElement !== $("ram-days")) {
     $("ram-start").value = (D.ramadan && D.ramadan.start) || guessRamadan();
     $("ram-days").value = String((D.ramadan && D.ramadan.days) || 30);
   }
   renderSign();
 }
 
-// Who can publish: anyone signed in with a Google account on the Admins list (website only; Google blocks sign-in inside apps).
+// Only the website changes times, and only for Google accounts on the Admins list. The app (Google blocks sign-in inside apps)
+// and anyone not signed in can view everything and choose what shows on their own screen, but can't change the times.
+const canEdit = () => !NATIVE && !!FB && auth.admin;
 function renderSign() {
-  const dl = `<button class="btn" id="dl-data">Download data file</button>`;
+  const acct = $("acct");
   let msg, btns = "";
-  if (!FB) msg = "Publishing isn't set up (firebase-config.js is missing).";
-  else if (NATIVE) { msg = "To change times for everyone, open Admin on the website and sign in with Google. Changes reach this app straight away."; btns = `<a class="btn" href="${WEBSITE}#admin">Open the website</a>`; }
+  if (NATIVE) {
+    msg = "Times are changed on the website by an admin, and reach this app straight away.";
+    btns = `<a class="btn" href="${WEBSITE}#admin">Open Admin on the website</a>`;
+  }
+  else if (!FB) msg = "Editing isn't set up on this copy of the site (firebase-config.js is missing).";
   else if (!auth.ready) msg = "Checking who's signed in…";
-  else if (!auth.user) { msg = "Sign in with an admin Google account to publish changes for everyone."; btns = `<button class="btn primary" id="sign-in">Sign in with Google</button>`; }
-  else if (!auth.admin) { msg = `Signed in as ${auth.user.email}, which isn't on the Admins list. Ask an admin to add it.`; btns = `<button class="btn" id="sign-out">Sign out</button>`; }
-  else { msg = `Signed in as ${auth.user.email}. Changes you save go live for everyone straight away.`; btns = `<button class="btn" id="sign-out">Sign out</button>`; }
-  $("sign-say").textContent = msg;
-  $("sign-actions").innerHTML = btns + dl;
-  $("adminspanel").hidden = !auth.admin;
-  if (auth.admin) $("adminlist").innerHTML = (auth.admins || []).map(e => `<li><span>${esc(e)}</span>${e === auth.user.email ? `<span class="say">You</span>`
+  else if (!auth.user) { msg = "Anyone can view the times. To change them for everyone, sign in with a Google account on the Admins list."; btns = `<button class="btn primary" id="sign-in">Sign in with Google</button>`; }
+  else if (!auth.admin) { msg = `Signed in as <span class="who">${esc(auth.user.email)}</span>, which isn't on the Admins list, so it can't change the times. Ask an admin to add it.`; btns = `<button class="btn" id="sign-out">Sign out</button>`; }
+  else { msg = `Signed in as <span class="who">${esc(auth.user.email)}</span>. You can change the times for everyone below.`; btns = `<button class="btn" id="sign-out">Sign out</button>`; }
+  $("sign-say").innerHTML = msg;
+  $("sign-actions").innerHTML = btns;
+  acct.classList.toggle("is-admin", canEdit());
+  $("admin-title").textContent = NATIVE ? "Settings" : "Admin";
+  $("editarea").hidden = !canEdit();
+  if (canEdit()) $("adminlist").innerHTML = (auth.admins || []).map(e => `<li><span>${esc(e)}</span>${e === auth.user.email ? `<span class="say">You</span>`
     : `<button class="linkbtn" data-unadmin="${esc(e)}">Remove</button>`}</li>`).join("");
+}
+// Changes saved on this device that never went live: left over from older versions, from the app, or from a failed save.
+function renderPending() {
+  const box = $("pendingbar");
+  box.hidden = !pending.length;
+  if (!pending.length) return;
+  const n = pending.length, s = n > 1 ? "s" : "";
+  $("pendlist").innerHTML = pending.map(o => `<li>${esc(describeOp(o))}</li>`).join("");
+  let text, btns;
+  if (NATIVE) {
+    text = "Saved on this phone by an older version of the app and never published. The app can't publish. Send them to the website to publish them there, or discard them.";
+    btns = `<a class="btn primary" href="${WEBSITE}#admin&import=${encodeURIComponent(btoa(unescape(encodeURIComponent(JSON.stringify(pending)))))}">Send to the website</a><button class="btn" id="pend-discard">Discard</button>`;
+  } else if (canEdit()) {
+    text = (imported ? "Brought over to this browser. " : "") + "These aren't live yet, but are shown on this device as a preview. Publish them for everyone, or discard them.";
+    btns = `<button class="btn primary" id="pub-now">Publish now</button><button class="btn" id="pend-discard">Discard</button>`;
+  } else {
+    text = "Saved on this device and never published. Only an admin can publish them: sign in above, or discard them.";
+    btns = `<button class="btn" id="pend-discard">Discard</button>`;
+  }
+  $("pendingtitle").textContent = `${n} unpublished change${s}`;
+  $("pendingtext").textContent = text;
+  $("pendactions").innerHTML = btns;
 }
 
 /* Parse pasted AI output into month blocks. */
@@ -988,11 +1076,8 @@ function saveImport() {
     ops.push({ op: "jamaah", id, month: b.month, value });
   }
   if (!ops.length) return;
-  pending.push(...ops); save("st-pending", pending); recompute();
-  ui.preview = null; $("imp-text").value = ""; renderPreview();
-  const months = ops.filter(o => o.month).length;
-  say("imp-say", `Saved ${months} month${months > 1 ? "s" : ""} on this device.`, "ok");
-  render(); publishIfReady("imp-say");
+  if (!commit(ops, "imp-say")) return;
+  ui.preview = null; $("imp-text").value = ""; renderPreview(); render();
 }
 
 /* ---------- Publishing to Firebase ---------- */
@@ -1033,11 +1118,17 @@ async function publish() {
   server = next; fetchedAt = Date.now(); save("st-cache", { data: server, at: fetchedAt });
   pending = []; save("st-pending", pending); recompute();
 }
+// Every edit is saved straight to Firebase. If that fails (offline, signed out) it waits under "unpublished changes".
 async function publishIfReady(sayId) {
-  if (!auth.admin) { say(sayId, $(sayId).textContent + (NATIVE ? " Saved on this phone only. Publish from the website to share it." : " Sign in under Publishing to share it with everyone."), "ok"); return; }
-  say(sayId, "Publishing…");
-  try { await publish(); say(sayId, "Published. Everyone has it now.", "ok"); render(); }
-  catch (e) { say(sayId, fbError(e) + " Your changes are kept on this device.", "err"); render(); }
+  if (!canEdit()) { say(sayId, "Only an admin signed in on the website can change the times.", "err"); render(); return; }
+  say(sayId, "Saving…");
+  try { await publish(); say(sayId, "Saved. Everyone has it now.", "ok"); render(); }
+  catch (e) { say(sayId, "Couldn't save: " + fbError(e) + " It's kept on this device under unpublished changes.", "err"); render(); }
+}
+// Adds edits and saves them for everyone; does nothing unless an admin is signed in on the website.
+function commit(ops, sayId) {
+  if (!canEdit()) { say(sayId, "Only an admin signed in on the website can change the times.", "err"); return false; }
+  setPending([...pending, ...ops]); publishIfReady(sayId); return true;
 }
 function say(id, msg, kind) { const el = $(id); el.textContent = msg; el.className = "say" + (kind ? " " + kind : ""); }
 
@@ -1071,10 +1162,7 @@ document.addEventListener("click", async e => {
     catch (err) { say("adm-say", fbError(err), "err"); }
     return;
   }
-  if (t.dataset.rmyes) {
-    pending.push({ op: "removeMosque", id: t.dataset.rmyes }); save("st-pending", pending); ui.removing = null; recompute(); render();
-    say("mq-say", "Removed."); return publishIfReady("mq-say");
-  }
+  if (t.dataset.rmyes) { ui.removing = null; commit([{ op: "removeMosque", id: t.dataset.rmyes }], "mq-say"); return render(); }
   switch (t.id) {
     case "d-today": { const by = Math.sign(startOfDay(new Date()) - ui.day); ui.day = startOfDay(new Date()); renderToday(); return slideIn(by); }
     case "m-prev": return stepMonth(-1);
@@ -1089,7 +1177,10 @@ document.addEventListener("click", async e => {
     }
     case "imp-clear": ui.preview = null; $("imp-text").value = ""; say("imp-say", ""); return renderPreview();
     case "imp-save": return saveImport();
-    case "pub-now": return publishIfReady("imp-say");
+    case "pub-now": return publishIfReady("pend-say");
+    case "pend-discard":
+      if (t.dataset.sure !== "1") { t.dataset.sure = "1"; t.textContent = "Tap again to discard"; return; }
+      setPending([]); return render();
     case "copy-prompt":
       try { await navigator.clipboard.writeText(PROMPT); t.textContent = "Copied"; setTimeout(() => t.textContent = "Copy prompt", 2000); }
       catch { const sel = getSelection(), rg = document.createRange(); rg.selectNodeContents($("prompt")); sel.removeAllRanges(); sel.addRange(rg); t.textContent = "Selected. Copy it now"; }
@@ -1101,9 +1192,8 @@ document.addEventListener("click", async e => {
       const name = $("mq-name").value.trim(), short = $("mq-short").value.trim();
       if (!name || !short) return say("mq-say", "Enter both a name and a column name.", "err");
       let id = slug(name); if (id === "elm" || mosques().some(m => m.id === id)) id += "-" + Date.now().toString(36).slice(-4);
-      pending.push({ op: "addMosque", mosque: { id, name, short: short.slice(0, 8) } }); save("st-pending", pending); recompute();
-      $("mq-name").value = ""; $("mq-short").value = ""; render();
-      say("mq-say", `Added ${name}.`, "ok"); return publishIfReady("mq-say");
+      if (!commit([{ op: "addMosque", mosque: { id, name, short: short.slice(0, 8) } }], "mq-say")) return;
+      $("mq-name").value = ""; $("mq-short").value = ""; return render();
     }
     case "sign-in":
       try { await watchAuth(); await auth.A.signInWithPopup(auth.au, new auth.A.GoogleAuthProvider()); }
@@ -1113,9 +1203,9 @@ document.addEventListener("click", async e => {
     case "ram-save": {
       const start = $("ram-start").value, days = +$("ram-days").value;
       if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return say("ram-say", "Choose the first day of Ramadan.", "err");
-      pending.push({ op: "ramadan", value: { start, days } }); save("st-pending", pending); recompute();
+      if (!commit([{ op: "ramadan", value: { start, days } }], "ram-say")) return;
       ui.mKey = ramadanDay(new Date()) ? "ramadan" : ui.mKey;
-      render(); say("ram-say", "Saved.", "ok"); return publishIfReady("ram-say");
+      return render();
     }
     case "adm-add": {
       const email = $("adm-email").value.trim().toLowerCase();
@@ -1243,7 +1333,7 @@ const DUA_TEXTS = [
 ];
 const DUAS = [...DHIKR.map(ar => ({ ar, kind: "Dhikr" })), ...DUA_TEXTS.map(ar => ({ ar, kind: "Du‘ā" }))];
 function showDua() {
-  if (!DUAS.length || location.hash === "#admin") return;
+  if (!DUAS.length || location.hash.startsWith("#admin") || imported) return;
   const last = load("st-dua-last", -1);
   let i = Math.floor(Math.random() * DUAS.length);
   if (DUAS.length > 1 && i === last) i = (i + 1) % DUAS.length;
@@ -1483,9 +1573,13 @@ async function checkAppUpdate() {
 /* ---------- Boot ---------- */
 $("prompt").textContent = PROMPT;
 let startView = "today"; try { startView = sessionStorage.getItem("st-view") || "today"; } catch {}
-if (location.hash === "#admin") startView = "data";
+if (location.hash.startsWith("#admin") || imported) startView = "data";
 showView(["today", "month", "data"].includes(startView) ? startView : "today");
-window.addEventListener("hashchange", () => { if (location.hash === "#admin" && ui.view !== "data") showView("data"); });
+window.addEventListener("hashchange", () => {
+  if (!location.hash.startsWith("#admin")) return;
+  if (!NATIVE && importFromHash()) render();
+  if (ui.view !== "data") showView("data");
+});
 listen();
 showDua();
 setInterval(() => {
