@@ -1,5 +1,5 @@
 # Creates the app's four reminder sounds: original, non-musical (no bells, chimes, instruments or tunes).
-# Chosen 2026-10-08 from the selection in salah-times-design\sounds.html.
+# Chosen 2026-10-08 from the selection in salah-times\design-choices\sounds.html.
 # Run: powershell -ExecutionPolicy Bypass -File app\make-assets.ps1   (icons: see make-brand.ps1)
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
