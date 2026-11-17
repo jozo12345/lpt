@@ -1,5 +1,6 @@
 name: Update start times
 
+# Saves London Prayer Times start times into Firebase every week and keeps a backup copy in data/timetables.json.
 on:
   schedule:
     - cron: "17 3 * * 1"   # every Monday at 03:17 UTC
@@ -16,10 +17,12 @@ jobs:
       - uses: actions/setup-node@v5
         with:
           node-version: 22
+      - run: npm install --no-save --no-audit --no-fund firebase-admin@13
       - run: node scripts/update-lpt.mjs
         env:
           LPT_KEY: ${{ secrets.LPT_KEY }}
-      - name: Commit if anything changed
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+      - name: Commit the backup copy if anything changed
         run: |
           if git diff --quiet; then echo "No changes"; exit 0; fi
           git config user.name "salah-times-bot"
