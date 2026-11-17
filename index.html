@@ -17,7 +17,12 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Salah Times">
 <title>Salah Times</title>
+<script>
+// The website moved from GitHub Pages to Firebase Hosting (Nov 2026).
+if (/\.github\.io$/.test(location.hostname)) location.replace("https://my5alat.web.app/" + location.hash);
+</script>
 <script src="app-config.js"></script>
+<script src="firebase-config.js"></script>
 <style>
 /* Layout: one phone-width column — date, a large next-prayer card, the day's board — with a floating tab bar at the bottom.
    Light theme only: warm cream paper, deep masjid green, burnished gold. */
@@ -30,6 +35,8 @@
   --green: #1E4A38;
   --green-deep: #163A2C;
   --green-soft: #E6EEE6;
+  --green-hi: #2A5C47;
+  --card-shadow: rgba(22, 58, 44, .7);
   --on-green: #FAF6EC;
   --gold: #A9803A;
   --gold-light: #E3C88E;
@@ -39,7 +46,15 @@
   --font-display: "Outfit", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-body: "Outfit", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --r: 18px;
+  --fast-row: transparent;
   color-scheme: light;
+}
+/* Ramadan mode: Rose dusk (chosen 2026-11-17). Switched on by the Ramadan dates set in Admin. */
+:root.ramadan {
+  --bg: #F8EFEF; --surface: #FFFEFD; --ink: #2C1219; --muted: #80606A; --line: #EEDCDF;
+  --green: #6E3647; --green-deep: #4F2433; --green-hi: #8A4A5C; --green-soft: #EFD3DA; --on-green: #FCF4F1;
+  --gold: #9A5A6C; --gold-light: #F3D29A; --gold-soft: #F7E8E4; --card-shadow: rgba(79, 36, 51, .6);
+  --fast-row: #F5DFE3;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -66,17 +81,38 @@ h2 { font-size: 1.35rem; }
 .todaybtn { border: 0; background: none; color: var(--green); font-weight: 700; font-size: .82rem; text-decoration: underline; text-underline-offset: 3px; padding: 2px; justify-self: center; }
 
 /* The large next-prayer card */
-.next { position: relative; overflow: hidden; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 4px 14px; background: radial-gradient(120% 140% at 100% 0%, #2A5C47 0%, var(--green) 45%, var(--green-deep) 100%); color: var(--on-green); border-radius: 24px; padding: 24px 22px 20px; box-shadow: 0 18px 36px -18px rgba(22, 58, 44, .7); min-height: 210px; }
+.next { position: relative; overflow: hidden; isolation: isolate; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 4px 14px; background: radial-gradient(120% 140% at 100% 0%, var(--green-hi) 0%, var(--green) 45%, var(--green-deep) 100%); color: var(--on-green); border-radius: 24px; padding: 24px 22px 20px; box-shadow: 0 18px 36px -18px var(--card-shadow); min-height: 210px; }
 .next::before { content: ""; position: absolute; z-index: -1; width: 230px; height: 230px; right: -105px; top: -105px; opacity: .13;
   /* The star from the centre of the logo: a solid eight-point star with an eight-point star cut out. */
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cmask id='m'%3E%3Crect width='100' height='100' fill='white'/%3E%3Cg fill='black'%3E%3Crect x='37' y='37' width='26' height='26' rx='1'/%3E%3Crect x='37' y='37' width='26' height='26' rx='1' transform='rotate(45 50 50)'/%3E%3C/g%3E%3C/mask%3E%3Cg fill='%23E3C88E' mask='url(%23m)'%3E%3Crect x='22' y='22' width='56' height='56' rx='3'/%3E%3Crect x='22' y='22' width='56' height='56' rx='3' transform='rotate(45 50 50)'/%3E%3C/g%3E%3C/svg%3E") center / contain no-repeat; }
+/* In Ramadan the star becomes a crescent, and the card gets a "Ramadan · Day N of 30" header. */
+:root.ramadan .next::before { width: 150px; height: 150px; right: -34px; top: -38px; opacity: .15;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Cpath fill='%23F3D29A' d='M62 14a38 38 0 1 0 24 62A32 32 0 1 1 62 14z'/%3E%3C/svg%3E") center / contain no-repeat; }
+.next .rhead { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+.next .rhead b { font-size: .68rem; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; color: var(--gold-light); }
+.next .rhead span { font-size: .85rem; opacity: .8; }
 .next .lbl { font-size: .7rem; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; color: var(--gold-light); grid-column: 1 / -1; }
 .next .nm { font-family: var(--font-display); font-size: clamp(2rem, 10.5vw, 3.1rem); line-height: 1; overflow-wrap: anywhere; letter-spacing: -.01em; margin-top: 6px; }
 .next .sub { font-size: .95rem; opacity: .85; margin-top: 6px; }
 .next .cdwrap { text-align: right; }
 .next .cd { font-family: var(--font-display); font-size: clamp(1.7rem, 8.5vw, 2.5rem); line-height: 1; white-space: nowrap; text-align: right; }
 .next .cd small { display: block; font-family: var(--font-body); font-size: .66rem; font-weight: 700; letter-spacing: .2em; text-transform: uppercase; color: var(--gold-light); margin-bottom: 6px; }
-.next .jams { grid-column: 1 / -1; display: grid; gap: 8px; border-top: 1px solid rgba(227, 200, 142, .3); padding-top: 14px; margin-top: 14px; }
+.next .prev { grid-column: 1 / -1; font-size: .88rem; color: rgba(250, 246, 236, .72); margin-bottom: 4px; }
+.next .prev b { color: var(--gold-light); font-weight: 700; }
+.next .jams { grid-column: 1 / -1; display: grid; gap: 8px; }
+/* Train line: the latest prayer (plus the one before it for 45 min after a prayer starts) and the next two, as stations. */
+.next .track { grid-column: 1 / -1; position: relative; height: 34px; margin: 22px 0 18px; }
+.next .rail, .next .tail { position: absolute; top: 5px; height: 4px; border-radius: 4px; }
+.next .rail { background: rgba(227, 200, 142, .26); }
+.next .rail.done { background: var(--gold-light); }
+.next .tail { left: 0; background: linear-gradient(90deg, rgba(227, 200, 142, 0), var(--gold-light)); }
+.next .tail.end { left: auto; background: linear-gradient(90deg, rgba(227, 200, 142, .26), rgba(227, 200, 142, 0)); }
+.next .stop { position: absolute; top: 0; transform: translateX(-50%); display: grid; justify-items: center; gap: 9px; }
+.next .stop i { width: 10px; height: 10px; margin-top: 2px; border-radius: 50%; border: 2px solid var(--gold-light); background: var(--green-deep); display: block; }
+.next .stop.passed i { background: var(--gold-light); }
+.next .stop span { font-size: .7rem; line-height: 1; white-space: nowrap; opacity: .7; }
+.next .stop.next-stop span { opacity: 1; font-weight: 700; color: var(--gold-light); }
+.next .here { position: absolute; top: 1px; width: 12px; height: 12px; transform: translateX(-50%); border-radius: 50%; background: #fff; box-shadow: 0 0 0 4px rgba(255, 255, 255, .2); z-index: 2; }
 .next .jl { display: grid; grid-template-columns: auto 1fr auto; gap: 12px; align-items: baseline; font-size: 1rem; }
 .next .jl b { font-weight: 800; color: var(--gold-light); letter-spacing: .06em; min-width: 3em; font-size: .85rem; }
 .next .jl span:last-child { font-family: var(--font-display); font-size: clamp(1.1rem, 5vw, 1.35rem); white-space: nowrap; }
@@ -98,6 +134,7 @@ h2 { font-size: 1.35rem; }
 .t.none { color: var(--muted); font-weight: 400; }
 .brow.sun .pname, .brow.sun .t { color: var(--muted); font-weight: 400; font-size: 1rem; }
 .brow.past { opacity: .45; }
+.brow.fast { background: var(--fast-row); }
 .brow.is-next { background: var(--green-soft); box-shadow: inset 4px 0 0 var(--green); }
 .notes { display: grid; gap: 6px; font-size: .85rem; color: var(--muted); margin: 0; padding: 0; list-style: none; }
 .notes .missing { color: var(--warn); }
@@ -192,7 +229,10 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
 @keyframes dua-in { from { opacity: 0; } }
 @keyframes dua-out { to { opacity: 0; } }
 .dua-card { max-width: 30rem; width: 100%; display: grid; gap: 16px; justify-items: center; text-align: center; padding: 28px 22px; border-radius: 24px; color: var(--on-green);
-  background: radial-gradient(120% 140% at 100% 0%, #2A5C47 0%, var(--green) 45%, var(--green-deep) 100%); box-shadow: 0 24px 48px -20px rgba(22, 58, 44, .7); }
+  background: radial-gradient(120% 140% at 100% 0%, var(--green-hi) 0%, var(--green) 45%, var(--green-deep) 100%); box-shadow: 0 24px 48px -20px var(--card-shadow); }
+.adminlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.adminlist li { display: flex; align-items: center; gap: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 9px 12px; background: var(--bg); overflow-wrap: anywhere; }
+.adminlist li span { flex: 1; min-width: 0; }
 .dua-card .eyebrow { color: var(--gold-light); }
 .dua-ar { margin: 0; font-family: "Markazi Text", "Traditional Arabic", "Noto Naskh Arabic", serif; font-size: clamp(1.75rem, 7.6vw, 2.35rem); line-height: 1.55; }
 .dua-en { margin: 0; font-size: 1rem; line-height: 1.55; opacity: .92; }
@@ -265,11 +305,14 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
       <div class="actions" id="rem-perm"></div>
       <div class="scroll"><table class="sheet remgrid" id="rem-grid"></table></div>
       <div class="scroll"><table class="sheet remgrid daily" id="rem-daily"></table></div>
+      <div class="scroll" id="rem-ramwrap" hidden><table class="sheet remgrid daily" id="rem-ramadan"></table></div>
       <div class="row2">
         <div class="field"><label for="rem-jamaah">Before jamā‘ah</label><select id="rem-jamaah" data-remmins="jamaahMins"></select></div>
         <div class="field"><label for="rem-last">Last call, before it ends</label><select id="rem-last" data-remmins="lastMins"></select></div>
+        <div class="field" id="rem-ramfield" hidden><label for="rem-ram">Ramadan reminders, before</label><select id="rem-ram" data-remmins="ramMins"></select></div>
       </div>
       <p class="say">Jamā‘ah reminders are for the mosques ticked under Home screen. Each type has its own sound; Last call sounds like a warning.</p>
+      <p class="say">If reminders arrive late, stop the phone's battery saver from holding the app back: <b>Settings → Apps → Salah Times → Battery → Unrestricted</b>. On Samsung, also remove it from <b>Sleeping apps</b> (Settings → Battery → Background usage limits).</p>
       <div class="actions"><button class="btn" id="rem-test">Play test reminders</button></div>
     </div>
 
@@ -311,21 +354,30 @@ pre.prompt { white-space: pre-wrap; background: var(--bg); border: 1px solid var
       <p class="say" id="mq-say" aria-live="polite"></p>
     </details>
 
-    <details class="panel" id="pubpanel">
-      <summary>Publishing</summary>
-      <p class="say">Changes you save go live for everyone once this phone is connected to the website's GitHub repository. The key stays on this device only.</p>
+    <details class="panel" id="rampanel">
+      <summary>Ramadan</summary>
+      <p class="say">During these dates the app turns rose-coloured, counts the days of Ramadan, calls each mosque's ‘Ishā jamā‘ah Taraweeh, and the Month page shows Ramadan 1–30. The date is filled in from the calendar; change it once the moon is sighted.</p>
       <div class="row2">
-        <div class="field"><label for="gh-owner">GitHub user</label><input id="gh-owner" autocomplete="off" autocapitalize="off"></div>
-        <div class="field"><label for="gh-repo">Repository</label><input id="gh-repo" autocomplete="off" autocapitalize="off" placeholder="salah-times"></div>
-        <div class="field"><label for="gh-branch">Branch</label><input id="gh-branch" autocomplete="off" autocapitalize="off" placeholder="main"></div>
+        <div class="field"><label for="ram-start">First day of Ramadan</label><input id="ram-start" type="date"></div>
+        <div class="field"><label for="ram-days">Length</label><select id="ram-days"><option value="30">30 days</option><option value="29">29 days</option></select></div>
       </div>
-      <div class="field"><label for="gh-token">Access token</label><input id="gh-token" type="password" autocomplete="off" placeholder="github_pat_…"></div>
-      <div class="actions">
-        <button class="btn primary" id="gh-save">Save and test</button>
-        <button class="btn" id="gh-forget">Remove from this phone</button>
-        <button class="btn" id="dl-data">Download data file</button>
-      </div>
-      <p class="say" id="gh-say" aria-live="polite"></p>
+      <div class="actions"><button class="btn primary" id="ram-save">Save Ramadan dates</button></div>
+      <p class="say" id="ram-say" aria-live="polite"></p>
+    </details>
+
+    <div class="panel" id="signpanel">
+      <h2>Publishing</h2>
+      <p class="say" id="sign-say" aria-live="polite"></p>
+      <div class="actions" id="sign-actions"></div>
+    </div>
+
+    <details class="panel" id="adminspanel" hidden>
+      <summary>Admins</summary>
+      <p class="say">These Google accounts can change the timetables for everyone.</p>
+      <ul class="adminlist" id="adminlist"></ul>
+      <div class="field"><label for="adm-email">Add a Gmail address</label><input id="adm-email" type="email" autocomplete="off" autocapitalize="off" placeholder="name@gmail.com"></div>
+      <div class="actions"><button class="btn" id="adm-add">Add admin</button></div>
+      <p class="say" id="adm-say" aria-live="polite"></p>
     </details>
 
     <div class="foot">
@@ -364,15 +416,18 @@ const ROWS = [
 const DATA_URL = "data/timetables.json";
 const REFRESH_MS = 3 * 3600 * 1000;
 
-/* The same page runs as the website and inside the Android app. In the app, APP_CONFIG (written by the
-   build job) says which GitHub site to fetch times from and which build this is. */
+/* The same page runs as the website and inside the Android app. Times live in Firebase (Firestore) and
+   arrive the moment an admin saves them; data/timetables.json is a weekly backup copy kept on GitHub.
+   In the app, APP_CONFIG (written by the build job) says which GitHub repository builds it and which build this is. */
 const CFG = window.APP_CONFIG || null;
+const FB = window.FIREBASE_CONFIG || null;
+const FB_SDK = "https://www.gstatic.com/firebasejs/11.0.2/";
+const WEBSITE = "https://my5alat.web.app/";
 const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
 const LN = NATIVE && window.Capacitor.Plugins ? window.Capacitor.Plugins.LocalNotifications : null;
-const SITE = NATIVE && CFG ? { owner: CFG.owner, repo: CFG.repo }
-  : /\.github\.io$/.test(location.hostname) ? { owner: location.hostname.split(".")[0], repo: location.pathname.split("/")[1] } : null;
-const FETCH_URL = NATIVE && CFG ? `https://${CFG.owner}.github.io/${CFG.repo}/${DATA_URL}` : DATA_URL;
-const APK_URL = SITE && SITE.repo ? `https://github.com/${SITE.owner}/${SITE.repo}/releases/latest/download/salah-times.apk` : null;
+const SITE = NATIVE && CFG ? { owner: CFG.owner, repo: CFG.repo } : { owner: "jozo12345", repo: "lpt" };
+const FETCH_URL = NATIVE ? WEBSITE + DATA_URL : DATA_URL;
+const APK_URL = `https://github.com/${SITE.owner}/${SITE.repo}/releases/latest/download/salah-times.apk`;
 
 const PROMPT = `You are converting a mosque prayer timetable (attached as an image or PDF) into plain text for my prayer-times website.
 
@@ -458,7 +513,10 @@ function normTime(v, kind) {
 /* ---------- Data ----------
    timetables.json: { updated, mosques:[{id,name,short}],
      start:  { "YYYY-MM": { days: [[fajr,sunrise,dhuhr,asr,maghrib,isha], …] } },
-     jamaah: { mosqueId: { "YYYY-MM": { jumuah, days: [[fajr,dhuhr,asr,maghrib,isha], …] } } } } */
+     jamaah: { mosqueId: { "YYYY-MM": { jumuah, days: [[fajr,dhuhr,asr,maghrib,isha], …] } } },
+     ramadan: { start: "YYYY-MM-DD", days: 29 | 30 } }
+   In Firestore the same object is stored as a JSON string in public/timetables (field "json"),
+   because Firestore can't hold arrays inside arrays. */
 const cached = load("st-cache", null);
 let server = cached ? cached.data : null;
 let fetchedAt = cached ? cached.at : 0;
@@ -474,6 +532,7 @@ function applyOps(base, ops) {
     else if (o.op === "jamaah") (d.jamaah[o.id] = d.jamaah[o.id] || {})[o.month] = o.value;
     else if (o.op === "addMosque") { if (!d.mosques.some(m => m.id === o.mosque.id)) d.mosques.push(o.mosque); }
     else if (o.op === "removeMosque") d.mosques = d.mosques.filter(m => m.id !== o.id);
+    else if (o.op === "ramadan") d.ramadan = o.value;
   }
   return d;
 }
@@ -497,26 +556,86 @@ function jamRow(id, date) {
   if (!r) return null;
   const o = {}; JAM_COLS.forEach((k, i) => o[k] = r[i] || null); return o;
 }
+/* ---------- Ramadan ----------
+   Iftar is Maghrib and suhoor ends at Fajr, so Ramadan needs no extra times: each mosque's ‘Ishā jamā‘ah is its taraweeh. */
+function ramadanRange() {
+  const r = D.ramadan; if (!r || !/^\d{4}-\d{2}-\d{2}$/.test(r.start || "")) return null;
+  const [y, m, d] = r.start.split("-").map(Number), len = r.days || 30;
+  return { first: new Date(y, m - 1, d), last: new Date(y, m - 1, d + len - 1), len };
+}
+function ramadanDay(date) {
+  const r = ramadanRange(); if (!r) return null;
+  const n = Math.round((startOfDay(date) - r.first) / 86400000) + 1;
+  return n >= 1 && n <= r.len ? { ...r, n } : null;
+}
+// The calendar's (Umm al-Qurā) first day of this or the next Ramadan, to fill in Admin before the moon is sighted.
+function guessRamadan() {
+  try {
+    const f = new Intl.DateTimeFormat("en-u-ca-islamic-umalqura", { month: "numeric", day: "numeric" });
+    const d = startOfDay(new Date()); d.setDate(d.getDate() - 29);
+    for (let i = 0; i < 420; i++, d.setDate(d.getDate() + 1)) {
+      const p = Object.fromEntries(f.formatToParts(d).map(x => [x.type, x.value]));
+      if (p.month === "9" && p.day === "1") return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    }
+  } catch {}
+  return "";
+}
+function applyTheme() {
+  const on = !!ramadanDay(new Date());
+  if (document.documentElement.classList.contains("ramadan") === on) return;
+  document.documentElement.classList.toggle("ramadan", on);
+  document.querySelector('meta[name="theme-color"]').content = on ? "#F8EFEF" : "#F6F1E6";
+}
+
 const mosques = () => D.mosques || [];
 const hidden = new Set(load("st-hidden", []));
 const shownMosques = () => mosques().filter(m => !hidden.has(m.id));
 
+function gotData(d) {
+  server = d; fetchedAt = Date.now();
+  save("st-cache", { data: server, at: fetchedAt });
+  recompute(); render(); queueSchedule();
+}
+// The backup file: used when Firebase can't be reached, and until the times have been moved into Firebase.
 async function fetchData(force) {
   if (!force && server && Date.now() - fetchedAt < REFRESH_MS) return;
   try {
     const r = await fetch(FETCH_URL + "?t=" + Date.now(), { cache: "no-store" });
     if (!r.ok) throw new Error(r.status);
-    server = await r.json(); fetchedAt = Date.now();
-    save("st-cache", { data: server, at: fetchedAt });
-    recompute(); render(); queueSchedule();
+    gotData(await r.json());
   } catch (e) {
     if (!server) { $("board").innerHTML = '<div class="empty">Couldn\'t load the times. Check your connection and try again.<button class="btn" id="retry">Try again</button></div>'; }
     renderFresh(true);
   }
 }
 
+// Firebase is loaded only when needed, straight from Google, so the page itself stays small and opens instantly from cache.
+let fsP = null;
+function firestore() {
+  return fsP ||= (async () => {
+    const [{ initializeApp }, mod] = await Promise.all([import(FB_SDK + "firebase-app.js"), import(FB_SDK + "firebase-firestore.js")]);
+    const app = initializeApp(FB), db = mod.getFirestore(app);
+    return { app, db, mod, ref: mod.doc(db, "public", "timetables") };
+  })().catch(e => { fsP = null; throw e; });
+}
+// Live updates: every open copy of the site or app hears about a change as soon as it's saved.
+let live = false, unsub = null;
+async function listen() {
+  if (!FB) return fetchData(false);
+  if (unsub) return;
+  unsub = () => {};
+  try {
+    const { ref, mod } = await firestore();
+    unsub = mod.onSnapshot(ref, snap => {
+      live = true;
+      if (snap.exists()) gotData(JSON.parse(snap.data().json)); else fetchData(true);
+    }, () => { unsub = null; live = false; renderFresh(); fetchData(false); });
+  } catch { unsub = null; live = false; fetchData(false); }
+}
+
 /* ---------- State ---------- */
-const ui = { view: "today", day: startOfDay(new Date()), mKey: mkey(new Date()), preview: null, removing: null };
+// The Month page opens on "ramadan" (Ramadan 1–30) during Ramadan, otherwise on this calendar month.
+const ui = { view: "today", day: startOfDay(new Date()), mKey: ramadanDay(new Date()) ? "ramadan" : mkey(new Date()), preview: null, removing: null };
 
 /* ---------- Today ---------- */
 function renderToday() {
@@ -534,7 +653,7 @@ function renderToday() {
 
   const st = startRow(d);
   const jam = shownMosques().map(m => ({ m, row: jamRow(m.id, d) }));
-  const fri = d.getDay() === 5;
+  const fri = d.getDay() === 5, ram = ramadanDay(d);
   const notes = [];
   if (!st && !jam.some(x => x.row)) {
     $("board").innerHTML = `<div class="empty">No times on file for ${esc(monthName(mkey(d)))} yet.</div>`;
@@ -547,9 +666,10 @@ function renderToday() {
     let html = `<div class="brow groups" ${tmpl}><span></span><span class="col elm" title="London Prayer Times">Start</span>${jam.map(x => `<span class="col" title="${esc(x.m.name)}">${esc(x.m.short)}</span>`).join("")}</div>
       <div class="brow head" ${tmpl}><span>Prayer</span><span>Begins</span>${jam.map(() => "<span>Jamā‘ah</span>").join("")}</div>`;
     ROWS.forEach((r, i) => {
-      const cls = ["brow", r.sun ? "sun" : "", isToday && (nextIdx === -1 || i < nextIdx) ? "past" : "", i === nextIdx ? "is-next" : ""].join(" ");
+      const cls = ["brow", r.sun ? "sun" : "", isToday && (nextIdx === -1 || i < nextIdx) ? "past" : "", i === nextIdx ? "is-next" : "",
+        ram && (r.k === "fajr" || r.k === "maghrib") ? "fast" : ""].join(" ");
       const b = st && st[r.k];
-      html += `<div class="${cls}" ${tmpl}><span class="pname">${fri && r.fri ? r.fri : LABEL[r.k]}</span><span class="t tn ${b ? "" : "none"}">${fmt(b)}</span>${
+      html += `<div class="${cls}" ${tmpl}><span class="pname">${fri && r.fri ? r.fri : ram && r.k === "isha" ? "‘Ishā · Taraweeh" : LABEL[r.k]}</span><span class="t tn ${b ? "" : "none"}">${fmt(b)}</span>${
         jam.map(x => { const j = !r.sun && x.row ? x.row[r.k] : null; return `<span class="t j tn ${j || r.sun ? "" : "none"}">${r.sun ? "" : fmt(j)}</span>`; }).join("")}</div>`;
     });
     $("board").innerHTML = html;
@@ -579,17 +699,68 @@ function renderNext(st, jam, idx, isToday) {
   const nowSec = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
   const secs = bm * 60 - nowSec + (idx < 0 ? 86400 : 0);
   const name = day.getDay() === 5 && r.fri ? r.fri : LABEL[r.k];
+  const ram = ramadanDay(new Date());
   const jamLines = jam.map(x => {
     const nj = nextJamaah(x.m.id, nowSec);
     if (!nj) return `<div class="jl"><b>${esc(x.m.short)}</b><span>No timetable</span><span></span></div>`;
     // Name the prayer only when this jamā‘ah belongs to an earlier prayer than the one counted down above
-    // (its start time has passed but the jamā‘ah hasn't happened yet).
+    // (its start time has passed but the jamā‘ah hasn't happened yet). In Ramadan, ‘Ishā jamā‘ah always says Taraweeh.
     const same = nj.k === r.k && !!nj.tomorrow === (idx < 0);
-    return `<div class="jl"><b>${esc(x.m.short)}</b><span class="tn">${same ? "" : nj.name + " "}${fmtPlain(nj.time)}</span><span class="tn">${countdown(nj.secs)}</span></div>`;
+    const label = ram && nj.k === "isha" && !nj.tomorrow ? "Taraweeh " : same ? "" : nj.name + " ";
+    return `<div class="jl"><b>${esc(x.m.short)}</b><span class="tn">${label}${fmtPlain(nj.time)}</span><span class="tn">${countdown(nj.secs)}</span></div>`;
   }).join("");
-  box.innerHTML = `<div><div class="lbl">${label}</div><div class="nm">${name}</div><div class="sub tn">Begins ${fmtPlain(b)}</div></div><div class="cd tn"><small>starts in</small>${countdown(secs)}</div>${
+  const prev = previousPrayer(nowSec);
+  box.innerHTML = `${ram ? `<div class="rhead"><b>Ramadan</b><span>Day ${ram.n} of ${ram.len}</span></div>` : ""}${prev ? `<div class="prev tn">${prev.name} was <b>${sinceText(prev.secs)}</b></div>` : ""}<div><div class="lbl">${label}</div><div class="nm">${name}</div><div class="sub tn">Begins ${fmtPlain(b)}</div></div><div class="cd tn"><small>starts in</small>${countdown(secs)}</div>${trackHtml()}${
     jamLines ? `<div class="jams">${jamLines}</div>` : ""}`;
   box.hidden = false;
+}
+
+// The most recent prayer that has started (sunrise isn't a prayer, so it's skipped); before Fajr that's last night's ‘Ishā.
+function previousPrayer(nowSec) {
+  const today = startOfDay(new Date()), st = startRow(today);
+  for (const k of ["isha", "maghrib", "asr", "dhuhr", "fajr"]) {
+    const m = toMin(st && st[k]);
+    if (m != null && m * 60 <= nowSec) return { name: today.getDay() === 5 && k === "dhuhr" ? "Jumu‘ah" : LABEL[k], secs: nowSec - m * 60 };
+  }
+  const y = new Date(today); y.setDate(y.getDate() - 1);
+  const m = toMin((startRow(y) || {}).isha);
+  return m == null ? null : { name: LABEL.isha, secs: nowSec + 86400 - m * 60 };
+}
+function sinceText(secs) {
+  const mins = Math.floor(secs / 60), m = mins % 60, ms = `${m} min${m === 1 ? "" : "s"}`;
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${ms} ago`;
+  return `${Math.floor(mins / 60)}h${m ? " " + ms : ""} ago`;
+}
+
+// The train line on the green card: the latest prayer (and, for 45 minutes after a prayer starts, the one before it)
+// plus the next two, evenly spaced between fading tails. The white dot is now, placed in proportion to the time between stations.
+const TRAIN_GRACE = 45 * 60 * 1000;
+function trackHtml() {
+  const today = startOfDay(new Date()), now = Date.now(), ev = [];
+  for (const d of [-1, 0, 1, 2]) {
+    const day = new Date(today); day.setDate(day.getDate() + d);
+    const st = startRow(day); if (!st) continue;
+    for (const k of ["fajr", "dhuhr", "asr", "maghrib", "isha"]) {
+      const m = toMin(st[k]); if (m == null) continue;
+      ev.push({ name: day.getDay() === 5 && k === "dhuhr" ? "Jumu‘ah" : LABEL[k], at: new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, m).getTime() });
+    }
+  }
+  const ni = ev.findIndex(e => e.at > now);
+  if (ni < 1) return "";
+  const prev = ev[ni - 1], next = ev[ni];
+  const stops = ev.slice(ni - (now - prev.at < TRAIN_GRACE && ni >= 2 ? 2 : 1), ni + 2);
+  const pi = stops.indexOf(prev), last = stops.length - 1;
+  const x = i => 0.1 + 0.8 * (last ? i / last : 0);
+  const hereX = x(pi) + (x(pi + 1) - x(pi)) * (now - prev.at) / (next.at - prev.at);
+  const pct = v => (v * 100).toFixed(2) + "%";
+  return `<div class="track" aria-hidden="true">
+    <div class="tail" style="width:${pct(x(0))}"></div>
+    <div class="rail done" style="left:${pct(x(0))};width:${pct(hereX - x(0))}"></div>
+    <div class="rail" style="left:${pct(hereX)};width:${pct(x(last) - hereX)}"></div>
+    <div class="tail end" style="left:${pct(x(last))};width:${pct(1 - x(last))}"></div>
+    ${stops.map((s, i) => `<div class="stop ${i <= pi ? "passed" : ""} ${i === pi + 1 ? "next-stop" : ""}" style="left:${pct(x(i))}"><i></i><span>${s.name}</span></div>`).join("")}
+    <div class="here" style="left:${pct(hereX)}"></div></div>`;
 }
 
 function countdown(secs) {
@@ -617,9 +788,10 @@ function renderPick() {
 }
 function renderFresh(failed) {
   const when = fetchedAt ? ago(fetchedAt) : "never";
-  const appLink = !NATIVE && APK_URL ? `<a class="linkbtn subtle" href="${APK_URL}">Android app</a>` : "";
+  const appLink = !NATIVE ? `<a class="linkbtn subtle" href="${APK_URL}">Android app</a>` : "";
   const version = NATIVE && CFG ? `<span>App ${CFG.build}</span>` : "";
-  $("fresh").innerHTML = `<span>${failed ? "Offline. " : ""}Times updated ${when}.</span><button class="linkbtn" id="refresh">Refresh</button><span class="grow"></span>${version}${appLink}<button class="linkbtn subtle" data-view="data">Admin</button>`;
+  $("fresh").innerHTML = `${live ? "<span>Times are live: changes show straight away.</span>"
+    : `<span>${failed ? "Offline. " : ""}Times updated ${when}.</span><button class="linkbtn" id="refresh">Refresh</button>`}<span class="grow"></span>${version}${appLink}<button class="linkbtn subtle" data-view="data">Admin</button>`;
 }
 function ago(t) {
   const m = Math.round((Date.now() - t) / 60000);
@@ -630,10 +802,35 @@ function ago(t) {
 
 /* ---------- Month ---------- */
 function renderMonth() {
+  const rr = ramadanRange();
+  if (ui.mKey === "ramadan" && !rr) ui.mKey = mkey(new Date());
+  if (ui.mKey === "ramadan") return renderRamadanMonth(rr);
   $("mlabel").textContent = monthName(ui.mKey);
+  // A calendar month that overlaps Ramadan offers the Ramadan 1–30 timetable.
+  const ramLink = rr && (mkey(rr.first) === ui.mKey || mkey(rr.last) === ui.mKey)
+    ? `<button class="linkbtn" id="m-ramadan">Show Ramadan ${rr.first.getFullYear()} by Ramadan day</button>` : "";
   const m = D.start[ui.mKey];
-  if (!m) { $("msheet").innerHTML = `<div class="scroll"><div class="empty">No start times on file for ${esc(monthName(ui.mKey))}.</div></div>`; return; }
-  $("msheet").innerHTML = `<div class="scroll">${sheet(ui.mKey, m.days, START_COLS)}</div>`;
+  if (!m) { $("msheet").innerHTML = `${ramLink}<div class="scroll"><div class="empty">No start times on file for ${esc(monthName(ui.mKey))}.</div></div>`; return; }
+  $("msheet").innerHTML = `${ramLink}<div class="scroll">${sheet(ui.mKey, m.days, START_COLS)}</div>`;
+}
+// Ramadan 1–30 in one table, even when it crosses two calendar months.
+function renderRamadanMonth(rr) {
+  $("mlabel").textContent = "Ramadan " + rr.first.getFullYear();
+  const today = startOfDay(new Date());
+  let h = `<table class="sheet"><thead><tr><th style="text-align:left;padding-left:10px">Day</th>${START_COLS.map(k => `<th>${k === "isha" ? "‘Ishā" : LABEL[k]}</th>`).join("")}</tr></thead><tbody>`;
+  for (let i = 0; i < rr.len; i++) {
+    const dt = new Date(rr.first.getFullYear(), rr.first.getMonth(), rr.first.getDate() + i), st = startRow(dt) || {};
+    const cls = [dt.getDay() === 5 ? "fri" : "", +dt === +today ? "today" : ""].join(" ");
+    h += `<tr class="${cls}"><td class="d">${i + 1} <span>${dt.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" })}</span></td>${
+      START_COLS.map(k => `<td>${st[k] ? fmt(st[k]) : ""}</td>`).join("")}</tr>`;
+  }
+  $("msheet").innerHTML = `<div class="scroll">${h}</tbody></table></div>`;
+}
+// The arrows step through calendar months; from Ramadan they go to the months it starts and ends in.
+function stepMonth(by) {
+  const rr = ramadanRange();
+  ui.mKey = ui.mKey === "ramadan" ? mkey(by < 0 ? rr.first : rr.last) : shiftMonth(ui.mKey, by);
+  renderMonth();
 }
 function sheet(key, days, cols, flags) {
   const [y, mo] = key.split("-").map(Number), n = daysIn(key), today = startOfDay(new Date());
@@ -668,8 +865,28 @@ function renderData() {
   $("mlist").innerHTML = mosques().map(m => `<li><span class="short">${esc(m.short)}</span><span class="nm">${esc(m.name)}</span>${
     ui.removing === m.id ? `<span class="say">Remove from the list?</span><button class="btn" data-rmyes="${esc(m.id)}">Remove</button><button class="btn" data-rmno="1">Keep</button>`
       : `<button class="linkbtn" data-rm="${esc(m.id)}">Remove</button>`}</li>`).join("") || `<li class="say">No jamā‘ah mosques yet.</li>`;
-  const gh = load("st-gh", {});
-  for (const k of ["owner", "repo", "branch"]) if (document.activeElement !== $("gh-" + k)) $("gh-" + k).value = gh[k] || "";
+  if (document.activeElement !== $("ram-start") && document.activeElement !== $("ram-days")) {
+    $("ram-start").value = (D.ramadan && D.ramadan.start) || guessRamadan();
+    $("ram-days").value = String((D.ramadan && D.ramadan.days) || 30);
+  }
+  renderSign();
+}
+
+// Who can publish: anyone signed in with a Google account on the Admins list (website only; Google blocks sign-in inside apps).
+function renderSign() {
+  const dl = `<button class="btn" id="dl-data">Download data file</button>`;
+  let msg, btns = "";
+  if (!FB) msg = "Publishing isn't set up (firebase-config.js is missing).";
+  else if (NATIVE) { msg = "To change times for everyone, open Admin on the website and sign in with Google. Changes reach this app straight away."; btns = `<a class="btn" href="${WEBSITE}#admin">Open the website</a>`; }
+  else if (!auth.ready) msg = "Checking who's signed in…";
+  else if (!auth.user) { msg = "Sign in with an admin Google account to publish changes for everyone."; btns = `<button class="btn primary" id="sign-in">Sign in with Google</button>`; }
+  else if (!auth.admin) { msg = `Signed in as ${auth.user.email}, which isn't on the Admins list. Ask an admin to add it.`; btns = `<button class="btn" id="sign-out">Sign out</button>`; }
+  else { msg = `Signed in as ${auth.user.email}. Changes you save go live for everyone straight away.`; btns = `<button class="btn" id="sign-out">Sign out</button>`; }
+  $("sign-say").textContent = msg;
+  $("sign-actions").innerHTML = btns + dl;
+  $("adminspanel").hidden = !auth.admin;
+  if (auth.admin) $("adminlist").innerHTML = (auth.admins || []).map(e => `<li><span>${esc(e)}</span>${e === auth.user.email ? `<span class="say">You</span>`
+    : `<button class="linkbtn" data-unadmin="${esc(e)}">Remove</button>`}</li>`).join("");
 }
 
 /* Parse pasted AI output into month blocks. */
@@ -778,42 +995,49 @@ function saveImport() {
   render(); publishIfReady("imp-say");
 }
 
-/* ---------- Publishing to GitHub ---------- */
-const b64enc = s => btoa(unescape(encodeURIComponent(s)));
-const b64dec = s => decodeURIComponent(escape(atob(s.replace(/\s/g, ""))));
-function ghConf() { const g = load("st-gh", {}); return g.owner && g.repo && g.token ? { ...g, branch: g.branch || "main" } : null; }
-async function ghGet(g) {
-  const r = await fetch(`https://api.github.com/repos/${encodeURIComponent(g.owner)}/${encodeURIComponent(g.repo)}/contents/${DATA_URL}?ref=${encodeURIComponent(g.branch)}`,
-    { headers: { Authorization: "Bearer " + g.token, Accept: "application/vnd.github+json" }, cache: "no-store" });
-  if (r.status === 401) throw new Error("The access token was refused. Check it hasn't expired.");
-  if (r.status === 404) throw new Error("Couldn't find data/timetables.json in that repository. Check the user, repository and branch.");
-  if (!r.ok) throw new Error("GitHub answered " + r.status + ".");
-  return r.json();
-}
-async function publish() {
-  const g = ghConf(); if (!g) throw new Error("Publishing isn't set up on this device yet.");
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const file = await ghGet(g);
-    const next = prune(applyOps(JSON.parse(b64dec(file.content)), pending));
-    next.updated = new Date().toISOString();
-    const r = await fetch(`https://api.github.com/repos/${encodeURIComponent(g.owner)}/${encodeURIComponent(g.repo)}/contents/${DATA_URL}`, {
-      method: "PUT", headers: { Authorization: "Bearer " + g.token, Accept: "application/vnd.github+json", "Content-Type": "application/json" },
-      body: JSON.stringify({ message: "Update timetables from the website", content: b64enc(JSON.stringify(next)), sha: file.sha, branch: g.branch }),
+/* ---------- Publishing to Firebase ---------- */
+const auth = { ready: false, user: null, admin: false, admins: null, A: null, au: null };
+let authP = null;
+function watchAuth() {
+  if (NATIVE || !FB || authP) return authP;
+  return authP = (async () => {
+    const { app, db, mod } = await firestore();
+    const A = await import(FB_SDK + "firebase-auth.js");
+    auth.A = A; auth.au = A.getAuth(app);
+    A.onAuthStateChanged(auth.au, async u => {
+      Object.assign(auth, { ready: true, user: u, admin: false, admins: null });
+      // Only admins may read the Admins list, so reading it is also the check.
+      if (u) { try { auth.admins = (await mod.getDocs(mod.collection(db, "admins"))).docs.map(d => d.id).sort(); auth.admin = auth.admins.includes(u.email); } catch {} }
+      if (ui.view === "data") renderData();
     });
-    if (r.status === 409 || r.status === 422) continue;
-    if (r.status === 403) throw new Error("The token can't write to this repository. Give it Contents: Read and write.");
-    if (!r.ok) throw new Error("GitHub answered " + r.status + ".");
-    server = next; fetchedAt = Date.now(); save("st-cache", { data: server, at: fetchedAt });
-    pending = []; save("st-pending", pending); recompute();
-    return;
-  }
-  throw new Error("Someone else updated the file at the same time. Press Publish now again.");
+  })().catch(e => { authP = null; auth.ready = true; if (ui.view === "data") renderData(); });
+}
+async function loadAdmins() {
+  const { db, mod } = await firestore();
+  auth.admins = (await mod.getDocs(mod.collection(db, "admins"))).docs.map(d => d.id).sort();
+  renderSign();
+}
+const fbError = e => e && e.code === "permission-denied" ? "This Google account isn't on the Admins list." : (e && e.message) || String(e);
+
+// Applies this device's saved changes on top of the latest copy in Firebase, in one step, so two admins saving at once can't overwrite each other.
+async function publish() {
+  if (!auth.admin) throw new Error(NATIVE ? "Publish from the website: open Admin there and sign in." : "Sign in with an admin Google account to publish.");
+  const { db, mod, ref } = await firestore();
+  let next;
+  await mod.runTransaction(db, async tx => {
+    const snap = await tx.get(ref);
+    next = prune(applyOps(snap.exists() ? JSON.parse(snap.data().json) : (server || emptyData()), pending));
+    next.updated = new Date().toISOString();
+    tx.set(ref, { json: JSON.stringify(next), updated: mod.serverTimestamp(), by: auth.user.email });
+  });
+  server = next; fetchedAt = Date.now(); save("st-cache", { data: server, at: fetchedAt });
+  pending = []; save("st-pending", pending); recompute();
 }
 async function publishIfReady(sayId) {
-  if (!ghConf()) { say(sayId, $(sayId).textContent + " Set up Publishing to put it on the website.", "ok"); return; }
+  if (!auth.admin) { say(sayId, $(sayId).textContent + (NATIVE ? " Saved on this phone only. Publish from the website to share it." : " Sign in under Publishing to share it with everyone."), "ok"); return; }
   say(sayId, "Publishing…");
-  try { await publish(); say(sayId, "Published. Other phones get it within a few minutes.", "ok"); render(); }
-  catch (e) { say(sayId, e.message + " Your changes are kept on this device.", "err"); render(); }
+  try { await publish(); say(sayId, "Published. Everyone has it now.", "ok"); render(); }
+  catch (e) { say(sayId, fbError(e) + " Your changes are kept on this device.", "err"); render(); }
 }
 function say(id, msg, kind) { const el = $(id); el.textContent = msg; el.className = "say" + (kind ? " " + kind : ""); }
 
@@ -827,10 +1051,11 @@ function showView(v) {
   const hash = v === "data" ? "#admin" : "";
   if (location.hash !== hash) { try { history.replaceState(null, "", location.pathname + location.search + hash); } catch {} }
   window.scrollTo(0, 0);
+  if (v === "data") watchAuth();
   render();
 }
 function render() {
-  renderPick(); renderFresh();
+  applyTheme(); renderPick(); renderFresh();
   if (ui.view === "today") renderToday();
   if (ui.view === "month") renderMonth();
   if (ui.view === "data") { renderData(); renderPreview(); renderRem(); }
@@ -841,15 +1066,21 @@ document.addEventListener("click", async e => {
   if (t.dataset.view) return showView(t.dataset.view);
   if (t.dataset.rm) { ui.removing = t.dataset.rm; return renderData(); }
   if (t.dataset.rmno) { ui.removing = null; return renderData(); }
+  if (t.dataset.unadmin) {
+    try { const { db, mod } = await firestore(); await mod.deleteDoc(mod.doc(db, "admins", t.dataset.unadmin)); await loadAdmins(); say("adm-say", `Removed ${t.dataset.unadmin}.`); }
+    catch (err) { say("adm-say", fbError(err), "err"); }
+    return;
+  }
   if (t.dataset.rmyes) {
     pending.push({ op: "removeMosque", id: t.dataset.rmyes }); save("st-pending", pending); ui.removing = null; recompute(); render();
     say("mq-say", "Removed."); return publishIfReady("mq-say");
   }
   switch (t.id) {
     case "d-today": { const by = Math.sign(startOfDay(new Date()) - ui.day); ui.day = startOfDay(new Date()); renderToday(); return slideIn(by); }
-    case "m-prev": ui.mKey = shiftMonth(ui.mKey, -1); return renderMonth();
-    case "m-next": ui.mKey = shiftMonth(ui.mKey, 1); return renderMonth();
-    case "refresh": case "retry": $("fresh").textContent = "Refreshing…"; return fetchData(true);
+    case "m-prev": return stepMonth(-1);
+    case "m-next": return stepMonth(1);
+    case "m-ramadan": ui.mKey = "ramadan"; return renderMonth();
+    case "refresh": case "retry": $("fresh").textContent = "Refreshing…"; return FB ? (listen(), fetchData(true)) : fetchData(true);
     case "imp-check": {
       const blocks = parseImport($("imp-text").value);
       if (!blocks.length) { ui.preview = null; renderPreview(); return say("imp-say", "Couldn't find any timetable in that text. It should start with a MOSQUE: line, as in the AI prompt.", "err"); }
@@ -874,15 +1105,28 @@ document.addEventListener("click", async e => {
       $("mq-name").value = ""; $("mq-short").value = ""; render();
       say("mq-say", `Added ${name}.`, "ok"); return publishIfReady("mq-say");
     }
-    case "gh-save": {
-      const g = { owner: $("gh-owner").value.trim(), repo: $("gh-repo").value.trim(), branch: $("gh-branch").value.trim() || "main", token: $("gh-token").value.trim() || load("st-gh", {}).token || "" };
-      if (!g.owner || !g.repo || !g.token) return say("gh-say", "Fill in the user, repository and token.", "err");
-      save("st-gh", g); $("gh-token").value = ""; say("gh-say", "Testing…");
-      try { await ghGet({ ...g }); say("gh-say", "Connected. Saved changes will now go live." + (pending.length ? " Press Publish now to send the waiting ones." : ""), "ok"); }
-      catch (err) { say("gh-say", err.message, "err"); }
+    case "sign-in":
+      try { await watchAuth(); await auth.A.signInWithPopup(auth.au, new auth.A.GoogleAuthProvider()); }
+      catch (err) { if (err && err.code !== "auth/popup-closed-by-user" && err.code !== "auth/cancelled-popup-request") say("sign-say", "Couldn't sign in: " + fbError(err), "err"); }
+      return;
+    case "sign-out": try { await auth.A.signOut(auth.au); } catch {} return;
+    case "ram-save": {
+      const start = $("ram-start").value, days = +$("ram-days").value;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(start)) return say("ram-say", "Choose the first day of Ramadan.", "err");
+      pending.push({ op: "ramadan", value: { start, days } }); save("st-pending", pending); recompute();
+      ui.mKey = ramadanDay(new Date()) ? "ramadan" : ui.mKey;
+      render(); say("ram-say", "Saved.", "ok"); return publishIfReady("ram-say");
+    }
+    case "adm-add": {
+      const email = $("adm-email").value.trim().toLowerCase();
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return say("adm-say", "Enter a full email address.", "err");
+      try {
+        const { db, mod } = await firestore();
+        await mod.setDoc(mod.doc(db, "admins", email), { addedBy: auth.user.email, added: mod.serverTimestamp() });
+        $("adm-email").value = ""; await loadAdmins(); say("adm-say", `Added ${email}. They can sign in on the website's Admin page.`, "ok");
+      } catch (err) { say("adm-say", fbError(err), "err"); }
       return;
     }
-    case "gh-forget": save("st-gh", {}); renderData(); return say("gh-say", "Removed the publishing details from this device.");
     case "dl-data": {
       const blob = new Blob([JSON.stringify(prune(clone(D)))], { type: "application/json" });
       const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "timetables.json"; a.click();
@@ -909,7 +1153,7 @@ document.addEventListener("change", e => {
     renderPreview();
   }
 });
-document.addEventListener("visibilitychange", () => { if (!document.hidden) { ui.day = $("d-today").hidden ? startOfDay(new Date()) : ui.day; fetchData(false); render(); queueSchedule(); checkAppUpdate(); } });
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { ui.day = $("d-today").hidden ? startOfDay(new Date()) : ui.day; listen(); render(); queueSchedule(); checkAppUpdate(); } });
 
 /* ---------- Opening du‘ā ----------
    One is shown each time the app or site is opened, never the same one twice in a row. Tap anywhere to close. */
@@ -1055,7 +1299,14 @@ $("swipehint").hidden = !!load("st-swiped", false);
    Scheduled on the phone itself, so they fire with no signal and the app closed. Re-scheduled whenever the
    times, the ticked mosques or the reminder settings change, and each time the app is opened. */
 const REM_DEFAULT = { start: { fajr: true, sunrise: false, dhuhr: true, asr: true, maghrib: true, isha: true }, jamaah: {}, last: {},
-  daily: { duha: true, witr: true, morning: true, evening: true, children: true }, jamaahMins: 10, lastMins: 15 };
+  daily: { duha: true, witr: true, morning: true, evening: true, children: true }, jamaahMins: 10, lastMins: 15,
+  ramadan: { suhoor: true, iftar: true, taraweeh: true }, ramMins: 15 };
+// Ramadan reminders are silent: they appear in the notification shade without a sound.
+const RAMADAN_REM = [
+  { k: "suhoor", label: "Suhoor ends", when: "before Fajr starts" },
+  { k: "iftar", label: "Iftar", when: "before Maghrib starts" },
+  { k: "taraweeh", label: "Taraweeh", when: "before each ticked mosque's taraweeh" },
+];
 const plusMin = (t, n) => { const m = toMin(t); return m == null ? null : pad(Math.floor((m + n) % 1440 / 60)) + ":" + pad((m + n) % 60); };
 // Daily reminders at fixed times (evening adhkār follows ‘Asr).
 const DAILY = [
@@ -1068,6 +1319,7 @@ const DAILY = [
 ];
 const rem = Object.assign(clone(REM_DEFAULT), load("st-rem", {}));
 rem.daily = Object.assign({}, REM_DEFAULT.daily, rem.daily);   // new daily reminders start switched on
+rem.ramadan = Object.assign({}, REM_DEFAULT.ramadan, rem.ramadan);
 const REM_COLS = [
   { type: "start", label: "Starts", keys: START_COLS },
   { type: "jamaah", label: "Jamā‘ah", keys: JAM_COLS },
@@ -1080,13 +1332,15 @@ const CHANNELS = [
   { id: "st-jamaah-2", name: "Before jamā‘ah", description: "Some minutes before a mosque's jamā‘ah", sound: "jamaah.wav", importance: 4 },
   { id: "st-last-2", name: "Last call", description: "Before a prayer's time runs out", sound: "lastcall.wav", importance: 5 },
   { id: "st-daily-2", name: "Daily adhkār and du‘ā", description: "Ḍuḥā, Witr, morning and evening adhkār, children's protection", sound: "daily.wav", importance: 4 },
+  // Importance 2 (low) = no sound and no pop-up; it still shows in the notification shade.
+  { id: "st-ramadan-1", name: "Ramadan", description: "Suhoor ends, iftar and taraweeh (silent)", importance: 2, vibrationOff: true },
 ];
 const MINUTES = [5, 10, 15, 20, 25, 30, 45, 60];
 let remState = { note: "" }, schedTimer = null;
 
 async function setupReminders() {
   if (!LN) return;
-  for (const c of CHANNELS) { try { await LN.createChannel({ ...c, visibility: 1, vibration: true, lights: true, lightColor: "#E3C88E" }); } catch {} }
+  for (const { vibrationOff, ...c } of CHANNELS) { try { await LN.createChannel({ ...c, visibility: 1, vibration: !vibrationOff, lights: true, lightColor: "#E3C88E" }); } catch {} }
   // Remove channels from earlier versions: "before start" (removed) and the old bell sounds.
   for (const id of ["st-before", "st-start", "st-jamaah", "st-last", "st-daily"]) { try { await LN.deleteChannel({ id }); } catch {} }
   queueSchedule();
@@ -1103,7 +1357,8 @@ async function scheduleReminders() {
     const jam = shownMosques();
     const count = t => Object.values(rem[t]).filter(Boolean).length;
     const perDay = count("start") + count("jamaah") * jam.length + count("last")
-      + DAILY.filter(x => rem.daily[x.k]).reduce((n, x) => n + x.times({ asr: "15:00" }).length, 0);
+      + DAILY.filter(x => rem.daily[x.k]).reduce((n, x) => n + x.times({ asr: "15:00" }).length, 0)
+      + (ramadanRange() ? +!!rem.ramadan.suhoor + +!!rem.ramadan.iftar + (rem.ramadan.taraweeh ? jam.length : 0) : 0);
     if (!perDay) { remState = { note: "No reminders are ticked." }; return renderRem(); }
     // Android allows about 500 scheduled alarms per app, so cover as many days as fit (up to 30).
     const days = Math.max(2, Math.min(30, Math.floor(400 / perDay)));
@@ -1114,13 +1369,13 @@ async function scheduleReminders() {
       const next = new Date(day); next.setDate(next.getDate() + 1);
       const st = startRow(day); if (!st) continue;
       const st2 = startRow(next);
-      const fri = day.getDay() === 5;
+      const fri = day.getDay() === 5, ram = ramadanDay(day);
       const name = k => fri && k === "dhuhr" ? "Jumu‘ah" : LABEL[k];
       const at = (t, before, d) => { const m = toMin(t); return m == null ? null : new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, m - before, 0); };
       const add = (when, type, idx, title, body) => {
         if (!when || when.getTime() < now + 5000) return;
         const c = CHANNELS[type];
-        list.push({ id: i * 1000 + type * 100 + idx, title, body, channelId: c.id, sound: c.sound, smallIcon: "ic_stat_salah", iconColor: "#1E4A38", schedule: { at: when, allowWhileIdle: true } });
+        list.push({ id: i * 1000 + type * 100 + idx, title, body, channelId: c.id, ...(c.sound ? { sound: c.sound } : {}), smallIcon: "ic_stat_salah", iconColor: "#1E4A38", schedule: { at: when, allowWhileIdle: true } });
         lastDay = day;
       };
       START_COLS.forEach((k, p) => {
@@ -1135,7 +1390,7 @@ async function scheduleReminders() {
         if (!rem.jamaah[k]) return;
         jam.forEach((m, mi) => {
           const r = jamRow(m.id, day), t = r && r[k];
-          if (t && mi < 9) add(at(t, rem.jamaahMins, day), 1, mi * 10 + p, `${m.short} · ${name(k)} jamā‘ah in ${rem.jamaahMins} minutes`, `${m.name}, ${fmtPlain(t)}`);
+          if (t && mi < 9) add(at(t, rem.jamaahMins, day), 1, mi * 10 + p, `${m.short} · ${ram && k === "isha" ? "Taraweeh" : name(k) + " jamā‘ah"} in ${rem.jamaahMins} minutes`, `${m.name}, ${fmtPlain(t)}`);
         });
       });
       // A prayer's time runs out when the next one starts (Fajr at sunrise, ‘Ishā at the next Fajr).
@@ -1149,6 +1404,15 @@ async function scheduleReminders() {
         if (!rem.daily[x.k]) return;
         x.times(st).forEach((t, j) => add(at(t, 0, day), 3, p * 10 + j, x.title, x.body));
       });
+      if (ram) {
+        const n = rem.ramMins;
+        if (rem.ramadan.suhoor && st.fajr) add(at(st.fajr, n, day), 4, 0, `Suhoor ends in ${n} minutes`, `Fajr begins at ${fmtPlain(st.fajr)}. Ramadan day ${ram.n}.`);
+        if (rem.ramadan.iftar && st.maghrib) add(at(st.maghrib, n, day), 4, 1, `Iftar in ${n} minutes`, `Maghrib at ${fmtPlain(st.maghrib)}.`);
+        if (rem.ramadan.taraweeh) jam.forEach((m, mi) => {
+          const r = jamRow(m.id, day), t = r && r.isha;
+          if (t && mi < 9) add(at(t, n, day), 4, 10 + mi, `${m.short} · Taraweeh in ${n} minutes`, `${m.name}, ${fmtPlain(t)}`);
+        });
+      }
     }
     if (list.length) await LN.schedule({ notifications: list });
     remState = list.length
@@ -1181,7 +1445,12 @@ async function renderRem() {
   $("rem-grid").innerHTML = `<thead><tr><th>Prayer</th>${REM_COLS.map(c => `<th>${c.label}</th>`).join("")}</tr></thead><tbody>${rows}</tbody>`;
   $("rem-daily").innerHTML = `<thead><tr><th>Daily</th><th>When</th><th>On</th></tr></thead><tbody>${DAILY.map(x =>
     `<tr><td>${x.label}</td><td class="when">${x.when}</td><td><input type="checkbox" id="rem-daily-${x.k}" data-rem="daily:${x.k}" ${rem.daily[x.k] ? "checked" : ""} aria-label="${x.label}"></td></tr>`).join("")}</tbody>`;
-  for (const [id, key] of [["rem-jamaah", "jamaahMins"], ["rem-last", "lastMins"]]) {
+  // The Ramadan rows show from when the dates are set until Ramadan ends.
+  const rr = ramadanRange(), showRam = !!rr && rr.last >= startOfDay(new Date());
+  $("rem-ramwrap").hidden = $("rem-ramfield").hidden = !showRam;
+  if (showRam) $("rem-ramadan").innerHTML = `<thead><tr><th>Ramadan (silent)</th><th>When</th><th>On</th></tr></thead><tbody>${RAMADAN_REM.map(x =>
+    `<tr><td>${x.label}</td><td class="when">${x.when}</td><td><input type="checkbox" id="rem-ramadan-${x.k}" data-rem="ramadan:${x.k}" ${rem.ramadan[x.k] ? "checked" : ""} aria-label="${x.label}"></td></tr>`).join("")}</tbody>`;
+  for (const [id, key] of [["rem-jamaah", "jamaahMins"], ["rem-last", "lastMins"], ["rem-ram", "ramMins"]]) {
     $(id).innerHTML = MINUTES.map(m => `<option value="${m}" ${rem[key] === m ? "selected" : ""}>${m} minutes</option>`).join("");
   }
 }
@@ -1217,13 +1486,13 @@ let startView = "today"; try { startView = sessionStorage.getItem("st-view") || 
 if (location.hash === "#admin") startView = "data";
 showView(["today", "month", "data"].includes(startView) ? startView : "today");
 window.addEventListener("hashchange", () => { if (location.hash === "#admin" && ui.view !== "data") showView("data"); });
-fetchData(false);
+listen();
 showDua();
 setInterval(() => {
   if (ui.view !== "today") return;
   const today = startOfDay(new Date());
   if (+ui.day !== +today && $("d-today").hidden) ui.day = today;
-  renderToday();
+  applyTheme(); renderToday();
 }, 1000);
 if (!NATIVE && "serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});
 if (NATIVE) { setupReminders(); checkAppUpdate(); }

@@ -1,8 +1,8 @@
 # Serves this folder at http://localhost:8080/ for testing on this computer. Stop with Ctrl+C.
-param([int]$Port = 8080)
-$root = $PSScriptRoot
+param([int]$Port = 8080, [string]$Root = $PSScriptRoot)
+$root = (Resolve-Path $Root).Path
 $types = @{ ".html" = "text/html; charset=utf-8"; ".js" = "text/javascript; charset=utf-8"; ".mjs" = "text/javascript; charset=utf-8";
-  ".json" = "application/json; charset=utf-8"; ".webmanifest" = "application/manifest+json"; ".png" = "image/png"; ".svg" = "image/svg+xml"; ".md" = "text/plain; charset=utf-8" }
+  ".json" = "application/json; charset=utf-8"; ".webmanifest" = "application/manifest+json"; ".png" = "image/png"; ".svg" = "image/svg+xml"; ".md" = "text/plain; charset=utf-8"; ".wav" = "audio/wav" }
 $listener = New-Object Net.HttpListener
 $listener.Prefixes.Add("http://localhost:$Port/")
 $listener.Start()

@@ -1,0 +1,17 @@
+{
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json", ".firebaserc", "firestore.rules", "README.md", "AI-PROMPT.md", "serve.ps1",
+      "app/**", "scripts/**", "node_modules/**", "**/.*", "**/.*/**"
+    ],
+    "headers": [
+      { "source": "/@(index.html|sw.js|app-config.js|firebase-config.js)", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
+      { "source": "/", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] },
+      { "source": "/data/**", "headers": [{ "key": "Cache-Control", "value": "no-cache" }, { "key": "Access-Control-Allow-Origin", "value": "*" }] }
+    ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  }
+}

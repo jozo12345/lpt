@@ -69,7 +69,7 @@ The app is the same site packaged for Android, plus reminders that the phone sch
 | `app-config.js` | Empty on the website; the build fills in the app's version and where to fetch times. |
 
 ### One-time setup: the signing key
-Android only installs an update if it's signed with the same key as the version already on the phone. The key is in the separate `salah-times-signing` folder next to this one (never upload that folder). In the repository: **Settings → Secrets and variables → Actions → New repository secret**, add:
+Android only installs an update if it's signed with the same key as the version already on the phone. The key is in the separate `signing-key (PRIVATE - never upload)` folder next to this one, inside `salah-times` (never upload that folder). In the repository: **Settings → Secrets and variables → Actions → New repository secret**, add:
 - `ANDROID_KEYSTORE`: the whole contents of `ANDROID_KEYSTORE.txt`
 - `ANDROID_KEYSTORE_PASSWORD`: the contents of `ANDROID_KEYSTORE_PASSWORD.txt`
 
