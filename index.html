@@ -180,6 +180,7 @@ table.sheet { border-collapse: collapse; width: 100%; font-size: .86rem; font-va
 .chip.have { border-color: var(--green); color: var(--green); }
 .chip.local { border-color: var(--gold); color: var(--gold); }
 .chip.miss { border-style: dashed; color: var(--warn); }
+.chip.part { border-color: var(--green); border-style: dashed; color: var(--green); font-size: .7rem; }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; display: grid; gap: 12px; }
 .banner { background: var(--gold-soft); border: 1px solid var(--gold); border-radius: var(--r); padding: 12px 14px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: .88rem; }
 .banner span { flex: 1; min-width: 12em; }
@@ -486,7 +487,10 @@ DAY FAJR SUNRISE DHUHR ASR MAGHRIB ISHA
 
 Rules:
 - Every time in 24-hour HH:MM. Timetables often leave out am/pm: Fajr and sunrise are in the morning, Dhuhr is around midday (11:00 to 13:59), and Asr, Maghrib and Isha are afternoon or evening, so 4:30 means 16:30.
-- One line per day, starting at 01, covering every day of the month in order.
+- One line per day the sheet covers, in date order. DAY is the day of the calendar (Gregorian) month, 01 to 31.
+- A normal monthly sheet covers every day from 01. A Ramadan sheet (or any sheet that doesn't follow calendar months) usually starts and ends part-way through a month, and so may cover two months: then each month's block starts on the first date the sheet shows in that month (e.g. 08) and stops at the last one. Don't add days the sheet doesn't show.
+- If the sheet numbers its rows by Ramadan day or Hijri date, use the Gregorian dates printed beside them to work out each row's calendar date. If no Gregorian dates are printed, stop and say so instead of guessing.
+- In a Ramadan sheet, put the ‘Ishā jamā‘ah (not Taraweeh) in the ISHA column, and the Iftar time in MAGHRIB if no separate Maghrib jamā‘ah is shown.
 - If only one Maghrib time is shown (prayed at sunset), use that time.
 - For Asr start times, use the earlier (first / 1 Mithl / Shafi'i) time.
 - On Fridays, give the Jumu'ah time in the DHUHR column if the sheet shows one for that day.
@@ -558,13 +562,23 @@ function applyOps(base, ops) {
   const d = clone(base || emptyData());
   d.mosques = d.mosques || []; d.start = d.start || {}; d.jamaah = d.jamaah || {};
   for (const o of ops) {
-    if (o.op === "start") d.start[o.month] = o.value;
-    else if (o.op === "jamaah") (d.jamaah[o.id] = d.jamaah[o.id] || {})[o.month] = o.value;
+    if (o.op === "start") putMonth(d.start, o);
+    else if (o.op === "jamaah") putMonth(d.jamaah[o.id] = d.jamaah[o.id] || {}, o);
     else if (o.op === "addMosque") { if (!d.mosques.some(m => m.id === o.mosque.id)) d.mosques.push(o.mosque); }
     else if (o.op === "removeMosque") d.mosques = d.mosques.filter(m => m.id !== o.id);
     else if (o.op === "ramadan") d.ramadan = o.value;
   }
   return d;
+}
+// A whole-month timetable replaces the month. One covering only days from–to (e.g. Ramadan) replaces just those days.
+function putMonth(store, o) {
+  if (!o.from) { store[o.month] = o.value; return; }
+  const old = store[o.month], n = daysIn(o.month);
+  const days = Array.from({ length: n }, (_, i) => (old && old.days && old.days[i]) || null);
+  for (let i = o.from - 1; i < o.to && i < n; i++) days[i] = o.value.days[i] || null;
+  const next = { ...(old || {}), days };
+  if (o.value.jumuah) next.jumuah = o.value.jumuah;
+  store[o.month] = next;
 }
 // Keep last month onwards so the file stays small.
 function prune(d) {
@@ -593,8 +607,9 @@ const imported = NATIVE ? 0 : importFromHash();
 // A line for each unpublished change, so it can be checked before publishing or discarding.
 function describeOp(o) {
   const nm = id => { const m = (server && server.mosques || []).concat(pending.filter(x => x.op === "addMosque").map(x => x.mosque)).find(m => m.id === id); return m ? m.name : id; };
-  if (o.op === "start") return `Start times for ${monthName(o.month)}`;
-  if (o.op === "jamaah") return `Jamā‘ah times for ${nm(o.id)}, ${monthName(o.month)}`;
+  const when = o.month ? (o.from ? `${o.from}–${o.to} ` : "") + monthName(o.month) : "";
+  if (o.op === "start") return `Start times for ${when}`;
+  if (o.op === "jamaah") return `Jamā‘ah times for ${nm(o.id)}, ${when}`;
   if (o.op === "addMosque") return `New mosque: ${o.mosque.name} (${o.mosque.short})`;
   if (o.op === "removeMosque") return `Remove mosque: ${nm(o.id)}`;
   if (o.op === "ramadan") return `Ramadan dates: from ${o.value.start}, ${o.value.days} days`;
@@ -914,9 +929,12 @@ function renderData() {
   for (const m of rows) {
     h += `<span class="mo" title="${esc(m.name)}">${esc(m.short)}</span>`;
     for (const k of keys) {
-      const have = m.id === "elm" ? D.start[k] : D.jamaah[m.id] && D.jamaah[m.id][k];
+      const mo = m.id === "elm" ? D.start[k] : D.jamaah[m.id] && D.jamaah[m.id][k];
+      const got = mo && mo.days ? mo.days.filter(r => r && r.some(Boolean)).length : 0, n = daysIn(k);
       const local = pendingKeys.has(m.id + ":" + k);
-      h += `<span class="chip ${local ? "local" : have ? "have" : "miss"}">${local ? "Not published" : have ? "✓" : "Missing"}</span>`;
+      // A month with only some days (e.g. Ramadan pasted before the rest of the month) shows how many days it has.
+      h += local ? `<span class="chip local">Not published</span>` : !got ? `<span class="chip miss">Missing</span>`
+        : got < n ? `<span class="chip part" title="${got} of ${n} days">${got}/${n} days</span>` : `<span class="chip have">✓</span>`;
     }
   }
   $("status").innerHTML = h;
@@ -1018,8 +1036,12 @@ function checkBlock(b) {
     let last = -1;
     days[r.d - 1].forEach((t, i) => { const v = toMin(t); if (v == null) return; if (v <= last) flags.add(r.d + ":" + i); last = v; });
   }
-  const missing = []; for (let d = 1; d <= n; d++) if (!seen.has(d)) missing.push(d);
-  if (missing.length) problems.push(missing.length === n ? "No days found." : `Missing day${missing.length > 1 ? "s" : ""} ${missing.join(", ")}.`);
+  // A sheet may cover only part of a month (Ramadan): only gaps inside the days it covers are a problem.
+  const shown = [...seen].sort((a, c) => a - c), from = shown[0], to = shown[shown.length - 1];
+  const missing = []; if (shown.length) for (let d = from; d <= to; d++) if (!seen.has(d)) missing.push(d);
+  if (!shown.length) problems.push("No days found.");
+  else if (missing.length) problems.push(`Missing day${missing.length > 1 ? "s" : ""} ${missing.join(", ")}.`);
+  const part = shown.length && (from > 1 || to < n) ? { from, to } : null;
   // Start times drift a minute or two a day; jamā‘ah times step by 15–30 min. Clock changes move everything ~60 min.
   const limit = b.type === "start" ? 20 : 35;
   for (let d = 2; d <= n; d++) cols.forEach((_, i) => {
@@ -1032,7 +1054,7 @@ function checkBlock(b) {
     const hit = mosques().find(m => norm(m.name) === nb || norm(m.short) === nb || (nb.length > 5 && (norm(m.name).includes(nb) || nb.includes(norm(m.name)))));
     target = hit ? hit.id : "new";
   }
-  return { ...b, cols, days, problems, flags, target, include: !!b.month && seen.size > 0, newShort: initials(b.name) };
+  return { ...b, cols, days, problems, flags, target, part, include: !!b.month && seen.size > 0, newShort: initials(b.name) };
 }
 function initials(name) { return String(name).split(/[\s-]+/).filter(w => /^[A-Za-z]/.test(w) && !/^(us|al|as|ul|of|the|and)$/i.test(w)).map(w => w[0].toUpperCase()).join("").slice(0, 5) || "NEW"; }
 
@@ -1048,10 +1070,11 @@ function renderPreview() {
           b.target === "new" ? `<div class="field"><label for="bk-${i}-s">Column name</label><input id="bk-${i}-s" data-bk="${i}" data-f="newShort" maxlength="8" value="${esc(b.newShort)}"></div>` : ""}</div>`;
     const warn = b.problems.length || b.flags.size
       ? `<p class="say err">${esc(b.problems.join(" "))}${b.flags.size ? ` ${b.flags.size} time${b.flags.size > 1 ? "s look" : " looks"} wrong (highlighted).` : ""}</p>`
-      : `<p class="say ok">All ${b.month ? daysIn(b.month) : ""} days look right.</p>`;
+      : `<p class="say ok">All ${b.part ? b.part.to - b.part.from + 1 : b.month ? daysIn(b.month) : ""} days look right.</p>`;
+    const part = b.part && b.month ? `<p class="say">Covers ${b.part.from}–${b.part.to} ${esc(monthName(b.month))} only. The other days of the month keep their current times.</p>` : "";
     return `<div class="block"><div class="top"><b>${esc(b.month ? monthName(b.month) : "Unknown month")}</b>
       <label class="say"><input type="checkbox" id="bk-${i}-inc" data-bk="${i}" data-f="include" ${b.include ? "checked" : ""}> Save this month</label></div>
-      ${sel}${warn}${b.jumuah ? `<span class="say">Jumu‘ah khutbah ${fmtPlain(b.jumuah)}</span>` : ""}
+      ${sel}${warn}${part}${b.jumuah ? `<span class="say">Jumu‘ah khutbah ${fmtPlain(b.jumuah)}</span>` : ""}
       <div class="scroll">${b.month ? sheet(b.month, b.days, b.cols, b.flags) : ""}</div></div>`;
   }).join("");
   $("imp-save-row").hidden = !p.some(b => b.include);
@@ -1061,7 +1084,8 @@ function saveImport() {
   const p = ui.preview; if (!p) return;
   const ops = [], added = new Map();
   for (const b of p.filter(b => b.include && b.month)) {
-    if (b.type === "start") { ops.push({ op: "start", month: b.month, value: { days: b.days } }); continue; }
+    const span = b.part ? { from: b.part.from, to: b.part.to } : {};
+    if (b.type === "start") { ops.push({ op: "start", month: b.month, ...span, value: { days: b.days } }); continue; }
     let id = b.target;
     if (id === "new") {
       const key = norm(b.name);
@@ -1073,7 +1097,7 @@ function saveImport() {
       }
     }
     const value = { days: b.days }; if (b.jumuah) value.jumuah = b.jumuah;
-    ops.push({ op: "jamaah", id, month: b.month, value });
+    ops.push({ op: "jamaah", id, month: b.month, ...span, value });
   }
   if (!ops.length) return;
   if (!commit(ops, "imp-say")) return;

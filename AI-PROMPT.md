@@ -25,7 +25,10 @@ DAY FAJR SUNRISE DHUHR ASR MAGHRIB ISHA
 
 Rules:
 - Every time in 24-hour HH:MM. Timetables often leave out am/pm: Fajr and sunrise are in the morning, Dhuhr is around midday (11:00 to 13:59), and Asr, Maghrib and Isha are afternoon or evening, so 4:30 means 16:30.
-- One line per day, starting at 01, covering every day of the month in order.
+- One line per day the sheet covers, in date order. DAY is the day of the calendar (Gregorian) month, 01 to 31.
+- A normal monthly sheet covers every day from 01. A Ramadan sheet (or any sheet that doesn't follow calendar months) usually starts and ends part-way through a month, and so may cover two months: then each month's block starts on the first date the sheet shows in that month (e.g. 08) and stops at the last one. Don't add days the sheet doesn't show.
+- If the sheet numbers its rows by Ramadan day or Hijri date, use the Gregorian dates printed beside them to work out each row's calendar date. If no Gregorian dates are printed, stop and say so instead of guessing.
+- In a Ramadan sheet, put the ‘Ishā jamā‘ah (not Taraweeh) in the ISHA column, and the Iftar time in MAGHRIB if no separate Maghrib jamā‘ah is shown.
 - If only one Maghrib time is shown (prayed at sunset), use that time.
 - For Asr start times, use the earlier (first / 1 Mithl / Shafi'i) time.
 - On Fridays, give the Jumu'ah time in the DHUHR column if the sheet shows one for that day.
